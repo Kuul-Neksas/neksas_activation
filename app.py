@@ -133,3 +133,11 @@ def activate_service():
         return jsonify({'error': 'conflict'}), 409
 
     return jsonify({'status': 'ok'})
+
+from flask import redirect, url_for
+
+@app.route('/redirect')
+def auth_redirect():
+    # Qui potresti leggere il token dalla query string se serve
+    return "Accesso completato! Ora puoi chiudere questa finestra o tornare all'app."
+
