@@ -40,7 +40,7 @@ def activate_page():
         supabase_anon_key=app.config['SUPABASE_ANON_KEY']
     )
 
-@app.route('/')
+@app.route('/', methods=['GET', 'HEAD'])
 def show_activate():
     return render_template(
         'activate.html',
