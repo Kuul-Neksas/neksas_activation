@@ -2,142 +2,66 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Attivazione Neksəs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attivazione Servizio</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 24px auto; }
-    .box { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-    button { padding: 8px 12px; margin: 4px; }
-    label { display: block; margin: 6px 0; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .hidden { display: none; }
+    body { font-family: sans-serif; background: #f5f5f5; padding: 2rem; }
+    .container { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; }
+    input, button { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; border: 1px solid #ccc; }
+    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    hr { margin: 1.5rem 0; }
   </style>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h2>Attiva il servizio Neksəs</h2>
+  <div class="container">
+    <h2>Accedi o Registrati</h2>
 
-  <div id="auth" class="box">
-    <h3>Accedi o registrati</h3>
-    <p>Scegli un provider:</p>
-    <div>
-      <button onclick="oauth('email')">Email link</button>
-      <button onclick="oauth('google')">Google</button>
-      <button onclick="oauth('apple')">Apple</button>
-      <button onclick="oauth('github')">GitHub</button>
-      <button onclick="oauth('linkedin')">LinkedIn</button>
-      <button onclick="oauth('facebook')">Facebook</button>
-    </div>
-    <div id="emailBox" class="hidden">
-      <input id="emailInput" type="email" placeholder="tua@email.it" />
-      <button onclick="magicLink()">Invia magic link</button>
-    </div>
-  </div>
+    <!-- Login via Email -->
+    <input type="email" id="email-input" placeholder="Inserisci la tua email" />
+    <button onclick="signInWithEmail()">Accedi con Email</button>
 
-  <div id="formBox" class="box hidden">
-    <h3>Dati utente</h3>
-    <div class="grid">
-      <label>Nome <input id="first_name" /></label>
-      <label>Cognome <input id="last_name" /></label>
-      <label>Azienda <input id="company" /></label>
-      <label>P. IVA <input id="vat_number" /></label>
-      <label>Telefono <input id="phone" /></label>
-      <label>Email <input id="email" disabled /></label>
-    </div>
+    <hr />
 
-    <h3 style="margin-top:18px;">Seleziona PSP e circuiti</h3>
-    <div id="psps"></div>
-
-    <button id="submitBtn" onclick="submitActivation()">Crea/aggiorna e attiva</button>
-    <div id="msg"></div>
+    <!-- Provider OAuth (per il futuro) -->
+    <button onclick="signInWithProvider('google')">Accedi con Google</button>
+    <button onclick="signInWithProvider('apple')">Accedi con Apple</button>
+    <button onclick="signInWithProvider('github')">Accedi con GitHub</button>
+    <button onclick="signInWithProvider('linkedin')">Accedi con LinkedIn</button>
+    <button onclick="signInWithProvider('facebook')">Accedi con Facebook</button>
   </div>
 
   <script>
-    const SUPABASE_URL = "{{ supabase_url }}";
-    const SUPABASE_ANON_KEY = "{{ supabase_anon_key }}";
-    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let session = null;
+    const supabase = supabase.createClient(
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
+    );
 
-    async function init() {
-      const { data } = await supa.auth.getSession();
-      session = data.session;
-      if (session) {
-        document.getElementById('auth').classList.add('hidden');
-        document.getElementById('formBox').classList.remove('hidden');
-        document.getElementById('email').value = session.user.email || '';
-        await loadPSPs();
+    async function signInWithEmail() {
+      const email = document.getElementById('email-input').value;
+      if (!email) return alert("Inserisci un'email valida");
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) {
+        alert("Errore: " + error.message);
+      } else {
+        alert("Controlla la tua email per il link di accesso!");
       }
     }
 
-    async function loadPSPs() {
-      const res = await fetch('/api/psps');
-      const psps = await res.json();
-      const container = document.getElementById('psps');
-      container.innerHTML = '';
-      const circuits = ['Visa','Mastercard','Amex','Diners'];
-      psps.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'box';
-        div.innerHTML = `<strong>${p.psp_name}</strong> <small>(default: €${p.fixed_fee.toFixed(2)} + ${p.percentage_fee}% ${p.currency})</small>`;
-        circuits.forEach(c => {
-          const id = `${p.id}|${c}`;
-          div.innerHTML += `<label><input type="checkbox" value="${id}"> ${c}</label>`;
-        });
-        container.appendChild(div);
+    async function signInWithProvider(provider) {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider,
+        options: {
+          redirectTo: "https://neksas-activation.onrender.com/redirect"
+        }
       });
-    }
-
-    async function oauth(provider) {
-      if (provider === 'email') {
-        document.getElementById('emailBox').classList.remove('hidden');
-        return;
+      if (error) {
+        alert("Errore: " + error.message);
       }
-      await supa.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin + '/activate' }
-      });
     }
-
-    async function magicLink() {
-      const email = document.getElementById('emailInput').value.trim();
-      if (!email) return alert('Inserisci una email');
-      const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + '/activate' }});
-      if (error) return alert('Errore: ' + error.message);
-      alert('Controlla la tua email per il link di accesso');
-    }
-
-    async function submitActivation() {
-      const { data } = await supa.auth.getSession();
-      if (!data.session) return alert('Devi essere autenticato');
-      const token = data.session.access_token;
-
-      const selections = Array.from(document.querySelectorAll('#psps input[type="checkbox"]:checked'))
-        .map(i => {
-          const [psp_id, circuit] = i.value.split('|');
-          return { psp_id, circuit };
-        });
-
-      const payload = {
-        profile: {
-          first_name: document.getElementById('first_name').value,
-          last_name: document.getElementById('last_name').value,
-          company: document.getElementById('company').value,
-          vat_number: document.getElementById('vat_number').value,
-          phone: document.getElementById('phone').value
-        },
-        selections
-      };
-
-      const res = await fetch('/api/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify(payload)
-      });
-
-      const out = await res.json();
-      document.getElementById('msg').textContent = res.ok ? 'Attivazione completata 🎉' : ('Errore: ' + (out.error || ''));
-    }
-
-    init();
   </script>
 </body>
 </html>
+
