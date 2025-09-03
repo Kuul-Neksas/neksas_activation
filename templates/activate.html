@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Attivazione Servizio</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body { font-family: sans-serif; background: #f5f5f5; padding: 2rem; }
     .container { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -25,7 +24,7 @@
 
     <hr />
 
-    <!-- Provider OAuth (per il futuro) -->
+    <!-- Provider OAuth -->
     <button onclick="signInWithProvider('google')">Accedi con Google</button>
     <button onclick="signInWithProvider('apple')">Accedi con Apple</button>
     <button onclick="signInWithProvider('github')">Accedi con GitHub</button>
@@ -33,16 +32,22 @@
     <button onclick="signInWithProvider('facebook')">Accedi con Facebook</button>
   </div>
 
+  <!-- Carico la libreria PRIMA del mio script -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <!-- Il mio script va alla fine del body -->
   <script>
-    const supabase = supabase.createClient(
+    // Creo il client con un nome diverso per evitare conflitti
+    const sbClient = supabase.createClient(
       "{{ supabase_url }}",
       "{{ supabase_anon_key }}"
     );
 
     async function signInWithEmail() {
+      console.log("Funzione signInWithEmail avviata");
       const email = document.getElementById('email-input').value;
       if (!email) return alert("Inserisci un'email valida");
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      const { error } = await sbClient.auth.signInWithOtp({ email });
       if (error) {
         alert("Errore: " + error.message);
       } else {
@@ -51,7 +56,7 @@
     }
 
     async function signInWithProvider(provider) {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await sbClient.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: "https://neksas-activation.onrender.com/redirect"
