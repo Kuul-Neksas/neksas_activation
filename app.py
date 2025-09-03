@@ -40,6 +40,14 @@ def activate_page():
         supabase_anon_key=app.config['SUPABASE_ANON_KEY']
     )
 
+@app.route('/')
+def show_activate():
+    return render_template(
+        'activate.html',
+        supabase_url=app.config['SUPABASE_URL'],
+        supabase_anon_key=app.config['SUPABASE_ANON_KEY']
+    )
+
 @app.get('/api/psps')
 def list_psps():
     psps = PSPCondition.query.filter_by(active=True).order_by(PSPCondition.psp_name.asc()).all()
