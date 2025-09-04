@@ -1,86 +1,103 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <title>Attivazione PSP - Neksəs</title>
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background-color: #f4f7fa;
-      padding: 40px;
-      text-align: center;
-    }
-    .container {
-      background: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      max-width: 600px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    select, button {
-      padding: 12px;
-      font-size: 1em;
-      margin-top: 20px;
-      width: 80%;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      background-color: #0077cc;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #005fa3;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Registrazione e Scelta PSP</title>
 </head>
 <body>
-  <div class="container">
-    <h1>Attiva il tuo PSP</h1>
-    <p>Seleziona il provider da attivare per il tuo account.</p>
+  <h2>Completa il tuo profilo</h2>
+  <form id="user-form">
+    <label for="name">Nome:</label>
+    <input type="text" id="name" required><br>
 
-    <select id="psp">
-      <option value="">-- Seleziona PSP --</option>
-      <option value="Nexi">Nexi</option>
-      <option value="Stripe">Stripe</option>
-      <option value="PayPal">PayPal</option>
-      <option value="Satispay">Satispay</option>
-    </select>
+    <label for="surname">Cognome:</label>
+    <input type="text" id="surname" required><br>
 
-    <button onclick="updatePSP()">Attiva</button>
-  </div>
+    <label for="business_name">Ragione Sociale:</label>
+    <input type="text" id="business_name" required><br>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <label>Seleziona i PSP da attivare:</label><br>
+    <input type="checkbox" name="psp" value="nexi"> Nexi<br>
+    <input type="checkbox" name="psp" value="stripe"> Stripe<br>
+    <input type="checkbox" name="psp" value="paypal"> PayPal<br>
+    <input type="checkbox" name="psp" value="satispay"> Satispay<br><br>
+
+    <button type="submit">Conferma</button>
+  </form>
+
   <script>
     const sbClient = supabase.createClient(
-      'https://YOUR_PROJECT_ID.supabase.co',
-      'YOUR_PUBLIC_ANON_KEY'
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
     );
 
-    async function updatePSP() {
-      const user = await sbClient.auth.getUser();
-      const psp = document.getElementById('psp').value;
+    async function handleUserDataSubmit(event) {
+      event.preventDefault();
 
-      if (!psp) {
-        alert("Seleziona un PSP prima di continuare.");
+      const email = new URLSearchParams(window.location.search).get("email");
+      const name = document.getElementById("name").value.trim();
+      const surname = document.getElementById("surname").value.trim();
+      const businessName = document.getElementById("business_name").value.trim();
+      const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+
+      const { data: authUser, error: authError } = await sbClient
+        .from('auth.users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (authError || !authUser) {
+        alert("Errore nel recupero dell'utente autenticato.");
         return;
       }
 
-      const { error } = await sbClient
-        .from('users')
-        .update({ psp })
-        .eq('email', user.data.user.email);
+      const userId = authUser.id;
 
-      if (error) {
-        alert("Errore nell'attivazione: " + error.message);
-      } else {
-        alert("PSP attivato con successo!");
-        window.location.href = "/dashboard.html"; // da creare
+      // Inserimento in users
+      await sbClient.from('users').insert([
+        {
+          id: userId,
+          email,
+          name,
+          surname,
+          business_name: businessName,
+          is_active: true
+        }
+      ]);
+
+      // Inserimento in profiles
+      await sbClient.from('profiles').insert([
+        {
+          id: userId,
+          name,
+          surname,
+          business_name: businessName
+        }
+      ]);
+
+      // Recupera gli ID dei PSP selezionati dalla tabella psp_conditions
+      const { data: allPSPs } = await sbClient
+        .from('psp_conditions')
+        .select('id, psp_name');
+
+      for (const pspName of selectedPSPs) {
+        const match = allPSPs.find(p => p.psp_name.toLowerCase() === pspName.toLowerCase());
+        if (match) {
+          await sbClient.from('user_psp').insert([
+            {
+              user_id: userId,
+              psp_id: match.id,
+              attivo: true
+            }
+          ]);
+        }
       }
+
+      alert("Profilo completato e PSP attivati!");
+      window.location.href = "/dashboard";
     }
+
+    document.getElementById("user-form").addEventListener("submit", handleUserDataSubmit);
   </script>
 </body>
 </html>
