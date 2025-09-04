@@ -224,42 +224,22 @@
 }
 
     async function handleActivation(event) {
-      event.preventDefault();
-      const email = document.getElementById('email').value.trim().toLowerCase();
+  event.preventDefault();
+  const email = document.getElementById('email').value.trim().toLowerCase();
 
-      try {
-        const { data, error } = await sbClient
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .single();
-
-        let redirectUrl;
-
-        if (data) {
-          redirectUrl = 'https://neksas-activation.onrender.com/choose-psp';
-        } else {
-          redirectUrl = 'https://neksas-activation.onrender.com/register-psp';
-        }
-
-        const { error: otpError } = await sbClient.auth.signInWithOtp({
-          email,
-          options: {
-            redirectTo: redirectUrl
-          }
-        });
-
-        if (otpError) {
-          alert("Errore nell'invio del link: " + otpError.message);
-        } else {
-          alert("Link di accesso inviato! Controlla la tua email.");
-        }
-
-      } catch (err) {
-        console.error("Errore:", err);
-        alert("Si è verificato un errore. Riprova.");
-      }
+  const { error } = await sbClient.auth.signInWithOtp({
+    email,
+    options: {
+      redirectTo: "https://neksas-activation.onrender.com/post-auth-check"
     }
+  });
+
+  if (error) {
+    alert("Errore nell'invio del link: " + error.message);
+  } else {
+    alert("Link di accesso inviato! Controlla la tua email.");
+  }
+}
   </script>
 </body>
 </html>
