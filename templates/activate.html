@@ -78,42 +78,59 @@
       background-color: #005fa3;
     }
 
-    .provider-tabs {
+    .provider-section {
       margin-top: 40px;
     }
 
-    .provider-tabs h2 {
+    .provider-section h2 {
       font-size: 1.2em;
       margin-bottom: 20px;
       color: #333;
     }
 
-    .tabs {
+    .provider-button {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 16px;
-    }
-
-    .tab {
-      display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 6px;
-      padding: 12px;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 20px;
+      margin: 10px auto;
+      border: none;
+      background-color: #e6f0ff;
       border: 2px solid #0077cc;
       border-radius: 8px;
-      background-color: #e6f0ff;
-      cursor: pointer;
-      width: 120px;
-      text-align: center;
       font-weight: bold;
-      transition: all 0.3s ease;
+      cursor: pointer;
+      width: 250px;
+      position: relative;
     }
 
-    .tab img {
-      width: 40px;
+    .provider-button img {
+      width: 24px;
       height: auto;
+    }
+
+    .provider-button:hover {
+      background-color: #d0e4ff;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      padding: 5px 8px;
+      border-radius: 4px;
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      z-index: 1;
+    }
+
+    .provider-button:hover .tooltip {
+      visibility: visible;
     }
 
     .privacy {
@@ -133,7 +150,7 @@
     <h1 class="title">Benvenuto su Neksəs</h1>
     <p class="subtitle">Il tuo accesso ai servizi digitali di pagamento inizia qui. Attiva, gestisci, semplifica. Benvenuto su Neksəs!</p>
 
-    <form class="activation-form">
+    <form class="activation-form" onsubmit="handleActivation(event)">
       <label for="email">Email
         <span class="tooltip-icon" title="Riceverai un link di conferma via email per completare l'accesso.">ℹ️</span>
       </label>
@@ -141,37 +158,53 @@
       <button type="submit">Attiva</button>
     </form>
 
-    <div class="provider-tabs">
-      <h2>Seleziona il tuo provider di accesso/registrazione</h2>
-      <div class="tabs">
-        <div class="tab">
-          <img src="google.png" alt="Google" />
-          Google
-        </div>
-        <div class="tab">
-          <img src="facebook.png" alt="Facebook" />
-          Facebook
-        </div>
-        <div class="tab">
-          <img src="apple.png" alt="Apple" />
-          Apple
-        </div>
-        <div class="tab">
-          <img src="github.png" alt="GitHub" />
-          GitHub
-        </div>
-        <div class="tab">
-          <img src="linkedin.png" alt="LinkedIn" />
-          LinkedIn
-        </div>
-      </div>
+    <div class="provider-section">
+      <h2>Oppure accedi con un provider</h2>
+
+      <button class="provider-button" onclick="signInWithProvider('google')">
+        <img src="/static/google.png" alt="Google" />
+        Accedi con Google
+      </button>
+
+      <button class="provider-button" onclick="signInWithProvider('facebook')">
+        <img src="/static/facebook.png" alt="Facebook" />
+        Accedi con Facebook
+      </button>
+
+      <button class="provider-button">
+        <img src="/static/apple.png" alt="Apple" />
+        Accedi con Apple
+        <span class="tooltip">Coming soon</span>
+      </button>
+
+      <button class="provider-button" onclick="signInWithProvider('github')">
+        <img src="/static/github.png" alt="GitHub" />
+        Accedi con GitHub
+      </button>
+
+      <button class="provider-button" onclick="signInWithProvider('linkedin')">
+        <img src="/static/linkedin.png" alt="LinkedIn" />
+        Accedi con LinkedIn
+      </button>
     </div>
 
     <div class="privacy">
-      Continuando accetti la nostra <a href="{{ url_for('static', filename='privacy.pdf') }}" target="_blank">informativa sulla privacy</a>.
+      Continuando accetti la nostra <a href="/static/privacy.pdf" target="_blank">informativa sulla privacy</a>.
     </div>
   </div>
+
+  <script>
+    function signInWithProvider(provider) {
+      alert("Accesso con " + provider);
+      // Qui va la logica di autenticazione OAuth
+    }
+
+    function handleActivation(event) {
+      event.preventDefault();
+      const email = document.getElementById('email').value;
+      alert("Email inviata: " + email);
+      // Qui va la logica per inviare l'email al backend
+    }
+  </script>
 </body>
 </html>
-
-
