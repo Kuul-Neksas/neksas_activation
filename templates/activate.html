@@ -155,7 +155,7 @@
         <span class="tooltip-icon" title="Riceverai un link di conferma via email per completare l'accesso.">ℹ️</span>
       </label>
       <input type="email" id="email" name="email" placeholder="Inserisci la tua email" required />
-      <button type="submit">Attiva</button>
+      <button type="submit">Accedi / Attiva</button>
     </form>
 
     <div class="provider-section">
@@ -163,28 +163,32 @@
 
       <button class="provider-button" onclick="signInWithProvider('google')">
         <img src="/static/google.png" alt="Google" />
-        Accedi con Google
+        Google
+        <span class="tooltip">Sarà attivato presto</span>
       </button>
 
       <button class="provider-button" onclick="signInWithProvider('facebook')">
         <img src="/static/facebook.png" alt="Facebook" />
-        Accedi con Facebook
+        Facebook
+        <span class="tooltip">Sarà attivato presto</span>
       </button>
 
-      <button class="provider-button">
+      <button class="provider-button" onclick="signInWithProvider('apple')">
         <img src="/static/apple.png" alt="Apple" />
-        Accedi con Apple
-        <span class="tooltip">Coming soon</span>
+        Apple
+        <span class="tooltip">Sarà attivato presto</span>
       </button>
 
       <button class="provider-button" onclick="signInWithProvider('github')">
         <img src="/static/github.png" alt="GitHub" />
-        Accedi con GitHub
+        GitHub
+        <span class="tooltip">Sarà attivato presto</span>
       </button>
 
       <button class="provider-button" onclick="signInWithProvider('linkedin')">
         <img src="/static/linkedin.png" alt="LinkedIn" />
-        Accedi con LinkedIn
+        LinkedIn
+        <span class="tooltip">Sarà attivato presto</span>
       </button>
     </div>
 
@@ -194,16 +198,27 @@
   </div>
 
   <script>
-    function signInWithProvider(provider) {
-      alert("Accesso con " + provider);
-      // Qui va la logica di autenticazione OAuth
+    async function signInWithProvider(provider) {
+      try {
+        const { error } = await sbClient.auth.signInWithOAuth({
+          provider: provider,
+          options: {
+            redirectTo: "https://neksas-activation.onrender.com/redirect"
+          }
+        });
+        if (error) {
+          alert("Errore: " + error.message);
+        }
+      } catch (err) {
+        alert("Errore imprevisto: " + err.message);
+      }
     }
 
     function handleActivation(event) {
       event.preventDefault();
       const email = document.getElementById('email').value;
       alert("Email inviata: " + email);
-      // Qui va la logica per inviare l'email al backend
+      // Qui puoi integrare la logica per inviare l'email al backend
     }
   </script>
 </body>
