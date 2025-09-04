@@ -135,11 +135,13 @@ def activate_service():
     return jsonify({'status': 'ok'})
 
 from flask import redirect, url_for
+from flask import render_template
 
 @app.route('/redirect')
 def auth_redirect():
     # Qui potresti leggere il token dalla query string se serve
     return "Accesso completato! Ora puoi chiudere questa finestra o tornare all'app."
+
 @app.route('/choose-psp')
 def choose_psp():
     return render_template('choose-psp.html')
