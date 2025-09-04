@@ -1,0 +1,25 @@
+window.addEventListener("DOMContentLoaded", async () => {
+  const {
+    data: { user },
+    error
+  } = await sbClient.auth.getUser();
+
+  if (error || !user) {
+    alert("Errore nell'autenticazione");
+    return;
+  }
+
+  const email = user.email;
+
+  const { data: existingUser } = await sbClient
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .single();
+
+  if (existingUser) {
+    window.location.href = "/dashboard";
+  } else {
+    window.location.href = "/choose-psp?email=" + encodeURIComponent(email);
+  }
+});
