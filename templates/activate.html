@@ -20,6 +20,7 @@
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
     }
 
     .title {
@@ -38,6 +39,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      align-items: center;
     }
 
     label {
@@ -58,13 +60,15 @@
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 1em;
+      width: 100%;
+      max-width: 400px;
     }
 
     button[type="submit"] {
       background-color: #0077cc;
       color: white;
       border: none;
-      padding: 12px;
+      padding: 12px 24px;
       border-radius: 6px;
       font-size: 1em;
       cursor: pointer;
@@ -78,10 +82,17 @@
       margin-top: 40px;
     }
 
+    .provider-tabs h2 {
+      font-size: 1.2em;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
     .tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      justify-content: center;
+      gap: 16px;
     }
 
     .tab {
@@ -89,7 +100,7 @@
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      padding: 10px;
+      padding: 12px;
       border: 2px solid #0077cc;
       border-radius: 8px;
       background-color: #e6f0ff;
@@ -105,27 +116,15 @@
       height: auto;
     }
 
-    .tab.active {
-      border-color: #00cc88;
-      background-color: #ccffe6;
+    .privacy {
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #666;
     }
 
-    .tab.disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      position: relative;
-    }
-
-    .tab.disabled:hover::after {
-      content: "Coming soon";
-      position: absolute;
-      bottom: -28px;
-      background: #333;
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.8em;
-      white-space: nowrap;
+    .privacy a {
+      color: #0077cc;
+      text-decoration: underline;
     }
   </style>
 </head>
@@ -143,32 +142,35 @@
     </form>
 
     <div class="provider-tabs">
-      <h2>Seleziona il tuo provider</h2>
+      <h2>Seleziona il tuo provider di accesso/registrazione</h2>
       <div class="tabs">
-        <button class="tab active">
-          <img src="provider1.png" alt="PagoPA" />
-          PagoPA
-        </button>
-        <button class="tab disabled" title="Coming soon">
-          <img src="provider2.png" alt="Nexi" />
-          Nexi
-        </button>
-        <button class="tab disabled" title="Coming soon">
-          <img src="provider3.png" alt="PostePay" />
-          PostePay
-        </button>
-        <button class="tab disabled" title="Coming soon">
-          <img src="provider4.png" alt="Satispay" />
-          Satispay
-        </button>
-        <button class="tab disabled" title="Coming soon">
-          <img src="provider5.png" alt="PayPal" />
-          PayPal
-        </button>
+        <div class="tab">
+          <img src="google.png" alt="Google" />
+          Google
+        </div>
+        <div class="tab">
+          <img src="facebook.png" alt="Facebook" />
+          Facebook
+        </div>
+        <div class="tab">
+          <img src="apple.png" alt="Apple" />
+          Apple
+        </div>
+        <div class="tab">
+          <img src="github.png" alt="GitHub" />
+          GitHub
+        </div>
+        <div class="tab">
+          <img src="linkedin.png" alt="LinkedIn" />
+          LinkedIn
+        </div>
       </div>
+    </div>
+
+    <div class="privacy">
+      Continuando accetti la nostra <a href="privacy.pdf" target="_blank">informativa sulla privacy</a>.
     </div>
   </div>
 </body>
 </html>
-
 
