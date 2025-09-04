@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Attivazione PSP - Neksəs</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      padding: 40px;
+      text-align: center;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    select, button {
+      padding: 12px;
+      font-size: 1em;
+      margin-top: 20px;
+      width: 80%;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005fa3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Attiva il tuo PSP</h1>
+    <p>Seleziona il provider da attivare per il tuo account.</p>
+
+    <select id="psp">
+      <option value="">-- Seleziona PSP --</option>
+      <option value="Nexi">Nexi</option>
+      <option value="Stripe">Stripe</option>
+      <option value="PayPal">PayPal</option>
+      <option value="Satispay">Satispay</option>
+    </select>
+
+    <button onclick="updatePSP()">Attiva</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const sbClient = supabase.createClient(
+      'https://YOUR_PROJECT_ID.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    async function updatePSP() {
+      const user = await sbClient.auth.getUser();
+      const psp = document.getElementById('psp').value;
+
+      if (!psp) {
+        alert("Seleziona un PSP prima di continuare.");
+        return;
+      }
+
+      const { error } = await sbClient
+        .from('users')
+        .update({ psp })
+        .eq('email', user.data.user.email);
+
+      if (error) {
+        alert("Errore nell'attivazione: " + error.message);
+      } else {
+        alert("PSP attivato con successo!");
+        window.location.href = "/dashboard.html"; // da creare
+      }
+    }
+  </script>
+</body>
+</html>
