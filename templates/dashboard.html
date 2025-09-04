@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard - Neksəs</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      padding: 40px;
+      text-align: center;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 700px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #0077cc;
+    }
+    p {
+      font-size: 1.1em;
+      color: #555;
+    }
+    .logout {
+      margin-top: 30px;
+      padding: 12px 24px;
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    .logout:hover {
+      background-color: #cc0000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard Utente</h1>
+    <p>Benvenuto nella tua area riservata. Qui potrai gestire i tuoi PSP e accedere ai servizi digitali.</p>
+    <button class="logout" onclick="logout()">Esci</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const sbClient = supabase.createClient(
+      'https://YOUR_PROJECT_ID.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    async function logout() {
+      await sbClient.auth.signOut();
+      window.location.href = "/activate.html";
+    }
+
+    // Verifica autenticazione
+    sbClient.auth.getUser().then(({ data, error }) => {
+      if (!data?.user) {
+        alert("Accesso non autorizzato. Torna alla pagina di attivazione.");
+        window.location.href = "/activate.html";
+      }
+    });
+  </script>
+</body>
+</html>
