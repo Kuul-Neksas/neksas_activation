@@ -140,4 +140,15 @@ from flask import redirect, url_for
 def auth_redirect():
     # Qui potresti leggere il token dalla query string se serve
     return "Accesso completato! Ora puoi chiudere questa finestra o tornare all'app."
+@app.route('/choose-psp')
+def choose_psp():
+    return render_template('choose-psp.html')
+
+@app.route('/register-psp')
+def register_psp():
+    return render_template('register-psp.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
 
