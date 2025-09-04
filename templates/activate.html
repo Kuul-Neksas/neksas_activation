@@ -200,9 +200,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const sbClient = supabase.createClient(
-      'https://YOUR_PROJECT_ID.supabase.co',
-      'YOUR_PUBLIC_ANON_KEY'
-    );
+  "{{ supabase_url }}",
+  "{{ supabase_anon_key }}"
+);
 
     async function signInWithEmail(email) {
   try {
