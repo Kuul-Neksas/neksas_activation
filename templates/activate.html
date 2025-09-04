@@ -204,21 +204,24 @@
       'YOUR_PUBLIC_ANON_KEY'
     );
 
-    async function signInWithProvider(provider) {
-      try {
-        const { error } = await sbClient.auth.signInWithOAuth({
-          provider: provider,
-          options: {
-            redirectTo: "https://neksas-activation.onrender.com/redirect"
-          }
-        });
-        if (error) {
-          alert("Errore: " + error.message);
-        }
-      } catch (err) {
-        alert("Errore imprevisto: " + err.message);
+    async function signInWithEmail(email) {
+  try {
+    const { error } = await sbClient.auth.signInWithOtp({
+      email: email,
+      options: {
+        redirectTo: "https://neksas-activation.onrender.com/choose-psp"
       }
+    });
+
+    if (error) {
+      console.error("Errore nell'invio:", error.message);
+    } else {
+      console.log("Email inviata con successo!");
     }
+  } catch (err) {
+    console.error("Eccezione:", err);
+  }
+}
 
     async function handleActivation(event) {
       event.preventDefault();
