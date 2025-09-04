@@ -3,70 +3,172 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Attivazione Servizio</title>
+  <title>Attivazione Neksəs</title>
   <style>
-    body { font-family: sans-serif; background: #f5f5f5; padding: 2rem; }
-    .container { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; }
-    input, button { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; border: 1px solid #ccc; }
-    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
-    button:hover { background-color: #0056b3; }
-    hr { margin: 1.5rem 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .title {
+      font-size: 2em;
+      color: #0077cc;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 1.1em;
+      color: #555;
+      margin-bottom: 30px;
+    }
+
+    .activation-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    label {
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tooltip-icon {
+      cursor: help;
+      font-size: 1em;
+      color: #00cc88;
+    }
+
+    input[type="email"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1em;
+    }
+
+    button[type="submit"] {
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #005fa3;
+    }
+
+    .provider-tabs {
+      margin-top: 40px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 10px;
+      border: 2px solid #0077cc;
+      border-radius: 8px;
+      background-color: #e6f0ff;
+      cursor: pointer;
+      width: 120px;
+      text-align: center;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .tab img {
+      width: 40px;
+      height: auto;
+    }
+
+    .tab.active {
+      border-color: #00cc88;
+      background-color: #ccffe6;
+    }
+
+    .tab.disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      position: relative;
+    }
+
+    .tab.disabled:hover::after {
+      content: "Coming soon";
+      position: absolute;
+      bottom: -28px;
+      background: #333;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8em;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Accedi o Registrati al servizio Neksəs</h2>
+    <h1 class="title">Benvenuto su Neksəs</h1>
+    <p class="subtitle">Il tuo accesso ai servizi digitali di pagamento inizia qui. Attiva, gestisci, semplifica. Benvenuto su Neksəs!</p>
 
-    <!-- Login via Email -->
-    <input type="email" id="email-input" placeholder="Inserisci la tua email" />
-    <button onclick="signInWithEmail()">Accedi con Email</button>
+    <form class="activation-form">
+      <label for="email">Email
+        <span class="tooltip-icon" title="Riceverai un link di conferma via email per completare l'accesso.">ℹ️</span>
+      </label>
+      <input type="email" id="email" name="email" placeholder="Inserisci la tua email" required />
+      <button type="submit">Attiva</button>
+    </form>
 
-    <hr />
-
-    <!-- Provider OAuth -->
-    <button onclick="signInWithProvider('google')">Accedi con Google</button>
-    <button onclick="signInWithProvider('apple')">Accedi con Apple</button>
-    <button onclick="signInWithProvider('github')">Accedi con GitHub</button>
-    <button onclick="signInWithProvider('linkedin')">Accedi con LinkedIn</button>
-    <button onclick="signInWithProvider('facebook')">Accedi con Facebook</button>
+    <div class="provider-tabs">
+      <h2>Seleziona il tuo provider</h2>
+      <div class="tabs">
+        <button class="tab active">
+          <img src="provider1.png" alt="PagoPA" />
+          PagoPA
+        </button>
+        <button class="tab disabled" title="Coming soon">
+          <img src="provider2.png" alt="Nexi" />
+          Nexi
+        </button>
+        <button class="tab disabled" title="Coming soon">
+          <img src="provider3.png" alt="PostePay" />
+          PostePay
+        </button>
+        <button class="tab disabled" title="Coming soon">
+          <img src="provider4.png" alt="Satispay" />
+          Satispay
+        </button>
+        <button class="tab disabled" title="Coming soon">
+          <img src="provider5.png" alt="PayPal" />
+          PayPal
+        </button>
+      </div>
+    </div>
   </div>
-
-  <!-- Carico la libreria PRIMA del mio script -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-  <!-- Il mio script va alla fine del body -->
-  <script>
-    // Creo il client con un nome diverso per evitare conflitti
-    const sbClient = supabase.createClient(
-      "{{ supabase_url }}",
-      "{{ supabase_anon_key }}"
-    );
-
-    async function signInWithEmail() {
-      console.log("Funzione signInWithEmail avviata");
-      const email = document.getElementById('email-input').value;
-      if (!email) return alert("Inserisci un'email valida");
-      const { error } = await sbClient.auth.signInWithOtp({ email });
-      if (error) {
-        alert("Errore: " + error.message);
-      } else {
-        alert("Controlla la tua email per il link di accesso!");
-      }
-    }
-
-    async function signInWithProvider(provider) {
-      const { error } = await sbClient.auth.signInWithOAuth({
-        provider: provider,
-        options: {
-          redirectTo: "https://neksas-activation.onrender.com/redirect"
-        }
-      });
-      if (error) {
-        alert("Errore: " + error.message);
-      }
-    }
-  </script>
 </body>
 </html>
+
 
