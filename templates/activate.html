@@ -55,7 +55,8 @@
       color: #00cc88;
     }
 
-    input[type="email"] {
+    input[type="email"],
+    input[type="password"] {
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 6px;
@@ -157,19 +158,12 @@
       <input type="email" id="email" name="email" placeholder="Inserisci la tua email" required />
 
       <label for="password">Password
-      <span class="tooltip-icon" title="Scegli una password per accedere ai servizi Neksəs.">🔒</span>
-        </label>
-<input
-  type="password"
-  id="password"
-  name="password"
-  placeholder="Almeno 8 caratteri"
-  required
-  minlength="8"
-  style="width: 100%;  max-width: 400px; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;" 
-/>
+        <span class="tooltip-icon" title="Scegli una password per accedere ai servizi Neksəs.">🔒</span>
+      </label>
+      <input type="password" id="password" name="password" placeholder="Almeno 8 caratteri" required minlength="8" />
 
-<button type="submit">Accedi / Attiva</button>
+      <button type="submit">Accedi / Attiva</button>
+    </form>
 
     <div class="provider-section">
       <h2>Oppure accedi con un provider</h2>
@@ -213,83 +207,58 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const sbClient = supabase.createClient(
-  "{{ supabase_url }}",
-  "{{ supabase_anon_key }}"
-);
-
-    async function signInWithEmail(email) {
-  try {
-    const { error } = await sbClient.auth.signInWithOtp({
-      email: email,
-      options: {
-        redirectTo: "https://neksas-activation.onrender.com/choose-psp"
-      }
-    });
-
-    if (error) {
-      console.error("Errore nell'invio:", error.message);
-    } else {
-      console.log("Email inviata con successo!");
-    }
-  } catch (err) {
-    console.error("Eccezione:", err);
-  }
-}
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
+    );
 
     async function handleActivation(event) {
-  event.preventDefault();
-  const email = document.getElementById('email').value.trim().toLowerCase();
-  const password = document.getElementById('password').value;
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
 
-  if (password.length < 8) {
-    alert("La password deve contenere almeno 8 caratteri.");
-    return;
-  }
+      if (password.length < 8) {
+        alert("La password deve contenere almeno 8 caratteri.");
+        return;
+      }
 
-  // Verifica se l'utente esiste
-  const { data: existingUser, error: fetchError } = await sbClient
-    .from('users')
-    .select('email')
-    .eq('email', email)
-    .single();
+      try {
+        // Prova login con email e password
+        const { data: loginData, error: loginError } = await sbClient.auth.signInWithPassword({
+          email,
+          password
+        });
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    alert("Errore nella verifica dell'utente: " + fetchError.message);
-    return;
-  }
+        if (!loginError) {
+          // Login riuscito → vai alla dashboard
+          window.location.href = "https://neksas-activation.onrender.com/dashboard";
+          return;
+        }
 
-  if (existingUser) {
-    alert("Questa email è già registrata. Puoi accedere direttamente.");
-    return;
-  }
+        // Se login fallisce, prova registrazione
+        const { data: signUpData, error: signUpError } = await sbClient.auth.signUp({
+          email,
+          password,
+          options: {
+            redirectTo: "https://neksas-activation.onrender.com/choose-psp"
+          }
+        });
 
-  // Inserisci nuovo utente con password
-  const { error: insertError } = await sbClient
-    .from('users')
-    .insert([{ email, password_hash: password }]);
+        if (signUpError) {
+          alert("Errore nella registrazione: " + signUpError.message);
+          return;
+        }
 
-  if (insertError) {
-    alert("Errore nella registrazione: " + insertError.message);
-    return;
-  }
-
-  // Invia OTP per validazione email
-  const { error: otpError } = await sbClient.auth.signInWithOtp({
-    email,
-    options: {
-      redirectTo: "https://neksas-activation.onrender.com/choose-psp"
+        alert("Registrazione avvenuta! Controlla la tua email per confermare.");
+      } catch (err) {
+        console.error("Errore inatteso:", err);
+        alert("Si è verificato un errore. Riprova più tardi.");
+      }
     }
-  });
 
-  if (otpError) {
-    alert("Errore nell'invio del link: " + otpError.message);
-  } else {
-    alert("Link di conferma inviato! Controlla la tua email.");
-  }
-}
-
-
+    function signInWithProvider(provider) {
+      alert("Accesso con " + provider + " non ancora disponibile.");
+    }
   </script>
 </body>
 </html>
->
+
