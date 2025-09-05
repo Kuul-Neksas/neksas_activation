@@ -156,13 +156,20 @@
       </label>
       <input type="email" id="email" name="email" placeholder="Inserisci la tua email" required />
 
-      <label for="password">Password
-       <span class="tooltip-icon" title="Scegli una password per accedere ai servizi Neksəs.">🔒</span>
-      </label>
-      <input type="password" id="password" name="password" placeholder="Crea una password" required />
+      <label for="password">Password</label>
+<input
+  type="password"
+  id="password"
+  name="password"
+  placeholder="Almeno 8 caratteri"
+  required
+  minlength="8"
+  style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"
+/>
+<small style="color: #666;">La password deve contenere almeno 8 caratteri.</small>
+<span class="tooltip-icon" title="Scegli una password per accedere ai servizi Neksəs.">🔒</span>
 
-      <button type="submit">Accedi / Attiva</button>
-    </form>
+<button type="submit">Accedi / Attiva</button>
 
     <div class="provider-section">
       <h2>Oppure accedi con un provider</h2>
@@ -234,6 +241,11 @@
   const email = document.getElementById('email').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
 
+  if (password.length < 8) {
+    alert("La password deve contenere almeno 8 caratteri.");
+    return;
+  }
+
   // Verifica se l'utente esiste
   const { data: existingUser, error: fetchError } = await sbClient
     .from('users')
@@ -251,10 +263,10 @@
     return;
   }
 
-  // Salva la password nel DB
+  // Inserisci nuovo utente con password
   const { error: insertError } = await sbClient
     .from('users')
-    .insert([{ email, password }]);
+    .insert([{ email, password_hash: password }]);
 
   if (insertError) {
     alert("Errore nella registrazione: " + insertError.message);
@@ -275,6 +287,7 @@
     alert("Link di conferma inviato! Controlla la tua email.");
   }
 }
+
 
   </script>
 </body>
