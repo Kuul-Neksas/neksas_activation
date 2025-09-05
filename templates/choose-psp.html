@@ -1,103 +1,202 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <title>Registrazione e Scelta PSP</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scegli il tuo PSP - Neksəs</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .title {
+      font-size: 2em;
+      color: #0077cc;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 1.1em;
+      color: #555;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .psp-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .psp-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .psp-item {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background-color: #f0f4f8;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.05);
+    }
+
+    .psp-item img {
+      width: 48px;
+      height: auto;
+    }
+
+    .psp-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .psp-info label {
+      font-weight: bold;
+    }
+
+    .psp-info a {
+      font-size: 0.9em;
+      color: #0077cc;
+      text-decoration: underline;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .user-info input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1em;
+    }
+
+    button[type="submit"] {
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #005fa3;
+    }
+  </style>
 </head>
 <body>
-  <h2>Completa il tuo profilo</h2>
-  <form id="user-form">
-    <label for="name">Nome:</label>
-    <input type="text" id="name" required><br>
+  <div class="container">
+    <h1 class="title">Scegli il tuo PSP</h1>
+    <p class="subtitle">Seleziona uno o più provider di servizi di pagamento da attivare con Neksəs.</p>
 
-    <label for="surname">Cognome:</label>
-    <input type="text" id="surname" required><br>
+    <form class="psp-form" onsubmit="handlePSPSelection(event)">
+      <div class="psp-list">
+        <!-- PSP 1 -->
+        <div class="psp-item">
+          <img src="/static/loghi/psp1.png" alt="Logo PSP1" />
+          <div class="psp-info">
+            <label>
+              <input type="checkbox" name="psp" value="psp1" />
+              PSP One
+            </label>
+            <a href="/condizioni/psp1.pdf" target="_blank">Condizioni</a>
+          </div>
+        </div>
 
-    <label for="business_name">Ragione Sociale:</label>
-    <input type="text" id="business_name" required><br>
+        <!-- PSP 2 -->
+        <div class="psp-item">
+          <img src="/static/loghi/psp2.png" alt="Logo PSP2" />
+          <div class="psp-info">
+            <label>
+              <input type="checkbox" name="psp" value="psp2" />
+              PSP Two
+            </label>
+            <a href="/condizioni/psp2.pdf" target="_blank">Condizioni</a>
+          </div>
+        </div>
 
-    <label>Seleziona i PSP da attivare:</label><br>
-    <input type="checkbox" name="psp" value="nexi"> Nexi<br>
-    <input type="checkbox" name="psp" value="stripe"> Stripe<br>
-    <input type="checkbox" name="psp" value="paypal"> PayPal<br>
-    <input type="checkbox" name="psp" value="satispay"> Satispay<br><br>
+        <!-- PSP 3 -->
+        <div class="psp-item">
+          <img src="/static/loghi/psp3.png" alt="Logo PSP3" />
+          <div class="psp-info">
+            <label>
+              <input type="checkbox" name="psp" value="psp3" />
+              PSP Three
+            </label>
+            <a href="/condizioni/psp3.pdf" target="_blank">Condizioni</a>
+          </div>
+        </div>
+      </div>
 
-    <button type="submit">Conferma</button>
-  </form>
+      <div class="user-info">
+        <input type="text" name="nome" placeholder="Nome" required />
+        <input type="text" name="cognome" placeholder="Cognome" required />
+        <input type="text" name="business" placeholder="Nome attività" required />
+      </div>
 
+      <button type="submit">Continua</button>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const sbClient = supabase.createClient(
       "{{ supabase_url }}",
       "{{ supabase_anon_key }}"
     );
 
-    async function handleUserDataSubmit(event) {
+    async function handlePSPSelection(event) {
       event.preventDefault();
 
-      const email = new URLSearchParams(window.location.search).get("email");
-      const name = document.getElementById("name").value.trim();
-      const surname = document.getElementById("surname").value.trim();
-      const businessName = document.getElementById("business_name").value.trim();
       const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+      const nome = document.querySelector('input[name="nome"]').value;
+      const cognome = document.querySelector('input[name="cognome"]').value;
+      const business = document.querySelector('input[name="business"]').value;
+      const email = new URLSearchParams(window.location.search).get('email');
 
-      const { data: authUser, error: authError } = await sbClient
-        .from('auth.users')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (authError || !authUser) {
-        alert("Errore nel recupero dell'utente autenticato.");
+      if (!email) {
+        alert("Email non trovata nell'URL.");
         return;
       }
 
-      const userId = authUser.id;
+      // Aggiorna utente
+      await sbClient.from('users').update({ nome, cognome, business }).eq('email', email);
 
-      // Inserimento in users
-      await sbClient.from('users').insert([
-        {
-          id: userId,
-          email,
-          name,
-          surname,
-          business_name: businessName,
-          is_active: true
-        }
-      ]);
+      // Inserisci profilo
+      await sbClient.from('profiles').insert([{ email, nome, cognome, business }]);
 
-      // Inserimento in profiles
-      await sbClient.from('profiles').insert([
-        {
-          id: userId,
-          name,
-          surname,
-          business_name: businessName
-        }
-      ]);
-
-      // Recupera gli ID dei PSP selezionati dalla tabella psp_conditions
-      const { data: allPSPs } = await sbClient
-        .from('psp_conditions')
-        .select('id, psp_name');
-
-      for (const pspName of selectedPSPs) {
-        const match = allPSPs.find(p => p.psp_name.toLowerCase() === pspName.toLowerCase());
-        if (match) {
-          await sbClient.from('user_psp').insert([
-            {
-              user_id: userId,
-              psp_id: match.id,
-              attivo: true
-            }
-          ]);
-        }
+      // Inserisci PSP selezionati
+      for (const psp of selectedPSPs) {
+        await sbClient.from('user_psp').insert([{ email, psp }]);
       }
 
-      alert("Profilo completato e PSP attivati!");
       window.location.href = "/dashboard";
     }
-
-    document.getElementById("user-form").addEventListener("submit", handleUserDataSubmit);
   </script>
 </body>
 </html>
+
