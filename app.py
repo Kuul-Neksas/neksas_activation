@@ -158,56 +158,31 @@ def register_psp():
     return render_template('register-psp.html')
 
 from uuid import UUID as UUID_cls
+from flask import request, render_template
+from models import User, Profile, PSPCondition, UserPSPCondition
+from sqlalchemy.exc import SQLAlchemyError
 
 @app.route('/dashboard')
 def dashboard():
-    # 1) se è presente token -> prova a decodificarlo e ottenere user_id/email
-    token = request.args.get("token")
-    email_from_token = None
-    user_uuid = None
+    email = request.args.get("email")
+    print("Email ricevuta:", email)
 
-    if token:
-        try:
-            decoded = jwt.decode(token, app.config["SUPABASE_JWT_SECRET"], algorithms=["HS256"])
-            user_id = decoded.get("sub")
-            email_from_token = decoded.get("email")
-            if not user_id or not email_from_token:
-                app.logger.warning("Token decodificato ma manca sub/email")
-                return "Token non valido", 401
-            # converte stringa in UUID oggetto compatibile con SQLAlchemy
-            try:
-                user_uuid = UUID_cls(user_id)
-            except Exception as e:
-                app.logger.error("Formato user_id non valido nel token: %s", e)
-                return "Formato user_id non valido", 400
-        except Exception as e:
-            app.logger.exception("Errore decodifica token: %s", e)
-            return "Token non valido", 401
-
-    # 2) se non c'è token, cerca email in query string
-    if not user_uuid:
-        email = request.args.get("email")
-        if not email:
-            return "Email o token mancanti", 400
-        # cerca l'utente nella tabella users
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            return "Utente non trovato", 404
-        user_uuid = user.id
-    else:
-        # se siamo qui user_uuid è valorizzato dal token -> carica user dal DB
-        user = User.query.get(user_uuid)
-        if not user:
-            return "Utente non trovato", 404
-
-    # 3) carica profile (se esiste)
     try:
-        profile = Profile.query.filter_by(user_id=user_uuid).first()
-    except Exception as e:
-        app.logger.exception("Errore recupero profile: %s", e)
-        return "Errore interno", 500
+        user = User.query.filter_by(email=email).first()
+        print("Utente trovato:", user)
+        if not user:
+            return "Utente non trovato", 404
+    except SQLAlchemyError as e:
+        print("Errore nella query utente:", e)
+        return "Errore interno (user)", 500
 
-    # 4) carica PSP collegati (user_psp_conditions)
+    try:
+        profile = Profile.query.filter_by(user_id=user.id).first()
+        print("Profilo trovato:", profile)
+    except SQLAlchemyError as e:
+        print("Errore nella query profilo:", e)
+        profile = None
+
     try:
         psps = db.session.query(
             PSPCondition.psp_name,
@@ -218,11 +193,16 @@ def dashboard():
         ).join(
             UserPSPCondition, PSPCondition.id == UserPSPCondition.psp_id
         ).filter(
-            UserPSPCondition.user_id == user_uuid
+            UserPSPCondition.user_id == user.id
         ).all()
-    except Exception as e:
-        app.logger.exception("Errore recupero PSP: %s", e)
-        return "Errore interno", 500
+        print("PSP trovati:", psps)
+    except SQLAlchemyError as e:
+        print("Errore nella query PSP:", e)
+        psps = []
 
-    # 5) render della dashboard (passiamo user, profile, psps)
-    return render_template('dashboard.html', user=user, profile=profile, psps=psps)
+    try:
+        return render_template("dashboard.html", user=user, profile=profile, psps=psps)
+    except Exception as e:
+        print("Errore nel rendering del template:", e)
+        return "Errore interno (template)", 500
+
