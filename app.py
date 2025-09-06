@@ -157,23 +157,25 @@ def register_psp():
     return render_template('register-psp.html')
 
 @app.route('/dashboard')
-@jwt_required()
 def dashboard():
-    claims = get_jwt()
-    user_id = claims.get("sub")
-    email = claims.get("email")
+    token = request.args.get("token")
 
+    if not token:
+        return "Token mancante", 401
+
+    try:
+        decoded = jwt.decode(token, app.config["SUPABASE_JWT_SECRET"], algorithms=["HS256"])
+        user_id = decoded.get("sub")
+        email = decoded.get("email")
+    except Exception:
+        return "Token non valido", 401
 
     if not user_id or not email:
         return "Token non valido", 401
 
-    # 1. Recupera utente
     user = User.query.get(user_id)
-
-    # 2. Recupera profilo
     profile = Profile.query.filter_by(user_id=user_id).first()
 
-    # 3. Recupera PSP attivati
     psps = db.session.query(
         PSPCondition.psp_name,
         PSPCondition.currency,
@@ -184,9 +186,3 @@ def dashboard():
     ).filter(UserPSPCondition.user_id == user_id).all()
 
     return render_template('dashboard.html', user=user, profile=profile, psps=psps)
-
-
-    user = User.query.get(user_id)
-    profile = Profile.query.filter_by(user_id=user_id).first()
-
-    return render_template('dashboard.html', user=user, profile=profile)
