@@ -222,63 +222,67 @@
       "{{ supabase_anon_key }}"
     );
 
-    async function handleActivation(event) {
-  event.preventDefault();
-  const email = document.getElementById('email').value.trim().toLowerCase();
-  const password = document.getElementById('password').value;
+   <script>
+  async function handleActivation(event) {
+    event.preventDefault();
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
 
-  if (password.length < 8) {
-    alert("La password deve contenere almeno 8 caratteri.");
-    return;
-  }
-
-  try {
-    // 1. Provo login su auth.users
-    const { error: loginError } = await sbClient.auth.signInWithPassword({ email, password });
-
-    if (!loginError) {
-      // Login ok → dashboard
-      window.location.href = "https://neksas-activation.onrender.com/dashboard";
+    if (password.length < 8) {
+      alert("La password deve contenere almeno 8 caratteri.");
       return;
     }
 
-    // 2. Se login fallisce, provo registrazione
-    if (loginError.message.includes("Invalid login credentials")) {
-      const { data: signUpData, error: signUpError } = await sbClient.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
-        }
-      });
+    try {
+      // 1. Tenta login tradizionale
+      const { error: loginError } = await sbClient.auth.signInWithPassword({ email, password });
 
-      if (signUpError) {
-        alert("Errore registrazione: " + signUpError.message);
+      if (!loginError) {
+        // Login OK → vai alla dashboard
+        window.location.href = "https://neksas-activation.onrender.com/dashboard";
         return;
       }
 
-      // 3. Inserisco anche in public.users
-      const { error: insertError } = await sbClient.from("users").insert([
-        {
-          email,
-          password_hash: password, // ⚠️ meglio hashare lato backend
-          is_active: true
+      // 2. Se login fallisce → registrazione custom + invio magic link
+      if (loginError.message.includes("Invalid login credentials")) {
+        // Inserisci nella tua tabella users
+        const { error: insertError } = await sbClient.from("users").insert([
+          {
+            email,
+            password_hash: password, // ⚠️ in produzione meglio hashare lato backend
+            is_active: true
+          }
+        ]);
+
+        if (insertError) {
+          console.error("Errore inserimento in users:", insertError);
+          alert("Errore registrazione utente.");
+          return;
         }
-      ]);
 
-      if (insertError) {
-        console.error("Errore inserimento in users:", insertError);
+        // Invia magic link verso choose-psp
+        const { error: otpError } = await sbClient.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
+          }
+        });
+
+        if (otpError) {
+          console.error("Errore invio magic link:", otpError);
+          alert("Errore nell'invio del link di conferma.");
+          return;
+        }
+
+        alert("Registrazione completata! Controlla la tua email per confermare e continuare.");
+      } else {
+        alert("Errore login: " + loginError.message);
       }
-
-      alert("Registrazione completata! Controlla la tua email per confermare.");
-    } else {
-      alert("Errore login: " + loginError.message);
+    } catch (err) {
+      console.error("Errore inatteso:", err);
+      alert("Si è verificato un errore inatteso.");
     }
-  } catch (err) {
-    console.error("Errore inatteso:", err);
-    alert("Si è verificato un errore inatteso.");
   }
-}
 
     function signInWithProvider(provider) {
       alert(`Accesso con ${provider} non ancora disponibile.`);
