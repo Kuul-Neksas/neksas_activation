@@ -156,27 +156,72 @@ def choose_psp():
 def register_psp():
     return render_template('register-psp.html')
 
+from uuid import UUID as UUID_cls
+
 @app.route('/dashboard')
 def dashboard():
-    email = request.args.get("email")
-    if not email:
-        return "Email mancante", 400
+    # 1) se è presente token -> prova a decodificarlo e ottenere user_id/email
+    token = request.args.get("token")
+    email_from_token = None
+    user_uuid = None
 
-    # Trova l’utente nella tabella users
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return "Utente non trovato", 404
+    if token:
+        try:
+            decoded = jwt.decode(token, app.config["SUPABASE_JWT_SECRET"], algorithms=["HS256"])
+            user_id = decoded.get("sub")
+            email_from_token = decoded.get("email")
+            if not user_id or not email_from_token:
+                app.logger.warning("Token decodificato ma manca sub/email")
+                return "Token non valido", 401
+            # converte stringa in UUID oggetto compatibile con SQLAlchemy
+            try:
+                user_uuid = UUID_cls(user_id)
+            except Exception as e:
+                app.logger.error("Formato user_id non valido nel token: %s", e)
+                return "Formato user_id non valido", 400
+        except Exception as e:
+            app.logger.exception("Errore decodifica token: %s", e)
+            return "Token non valido", 401
 
-    profile = Profile.query.filter_by(user_id=user.id).first()
+    # 2) se non c'è token, cerca email in query string
+    if not user_uuid:
+        email = request.args.get("email")
+        if not email:
+            return "Email o token mancanti", 400
+        # cerca l'utente nella tabella users
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return "Utente non trovato", 404
+        user_uuid = user.id
+    else:
+        # se siamo qui user_uuid è valorizzato dal token -> carica user dal DB
+        user = User.query.get(user_uuid)
+        if not user:
+            return "Utente non trovato", 404
 
-    psps = db.session.query(
-        PSPCondition.psp_name,
-        PSPCondition.currency,
-        PSPCondition.fixed_fee,
-        PSPCondition.percentage_fee,
-        UserPSPCondition.circuit_name
-    ).join(UserPSPCondition, PSPCondition.id == UserPSPCondition.psp_id
-    ).filter(UserPSPCondition.user_id == user.id).all()
+    # 3) carica profile (se esiste)
+    try:
+        profile = Profile.query.filter_by(user_id=user_uuid).first()
+    except Exception as e:
+        app.logger.exception("Errore recupero profile: %s", e)
+        return "Errore interno", 500
 
-    return render_template("dashboard.html", user=user, profile=profile, psps=psps)
+    # 4) carica PSP collegati (user_psp_conditions)
+    try:
+        psps = db.session.query(
+            PSPCondition.psp_name,
+            PSPCondition.currency,
+            PSPCondition.fixed_fee,
+            PSPCondition.percentage_fee,
+            UserPSPCondition.circuit_name
+        ).join(
+            UserPSPCondition, PSPCondition.id == UserPSPCondition.psp_id
+        ).filter(
+            UserPSPCondition.user_id == user_uuid
+        ).all()
+    except Exception as e:
+        app.logger.exception("Errore recupero PSP: %s", e)
+        return "Errore interno", 500
 
+    # 5) render della dashboard (passiamo user, profile, psps)
+    return render_template('dashboard.html', user=user, profile=profile, psps=psps)
