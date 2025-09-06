@@ -158,23 +158,16 @@ def register_psp():
 
 @app.route('/dashboard')
 def dashboard():
-    token = request.args.get("token")
+    email = request.args.get("email")
+    if not email:
+        return "Email mancante", 400
 
-    if not token:
-        return "Token mancante", 401
+    # Trova l’utente nella tabella users
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return "Utente non trovato", 404
 
-    try:
-        decoded = jwt.decode(token, app.config["SUPABASE_JWT_SECRET"], algorithms=["HS256"])
-        user_id = decoded.get("sub")
-        email = decoded.get("email")
-    except Exception:
-        return "Token non valido", 401
-
-    if not user_id or not email:
-        return "Token non valido", 401
-
-    user = User.query.get(user_id)
-    profile = Profile.query.filter_by(user_id=user_id).first()
+    profile = Profile.query.filter_by(user_id=user.id).first()
 
     psps = db.session.query(
         PSPCondition.psp_name,
@@ -183,6 +176,6 @@ def dashboard():
         PSPCondition.percentage_fee,
         UserPSPCondition.circuit_name
     ).join(UserPSPCondition, PSPCondition.id == UserPSPCondition.psp_id
-    ).filter(UserPSPCondition.user_id == user_id).all()
+    ).filter(UserPSPCondition.user_id == user.id).all()
 
-    return render_template('dashboard.html', user=user, profile=profile, psps=psps)
+    return render_template("dashboard.html", user=user, profile=profile, psps=psps)
