@@ -2,29 +2,58 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Dashboard - Neksəs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Neksəs</title>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
       background-color: #f4f7fa;
-      padding: 40px;
-      text-align: center;
+      margin: 0;
+      padding: 0;
+      color: #333;
     }
+
     .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
       background: #fff;
-      padding: 30px;
       border-radius: 12px;
-      max-width: 700px;
-      margin: auto;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h1 {
+
+    .title {
+      font-size: 2em;
       color: #0077cc;
+      margin-bottom: 10px;
+      text-align: center;
     }
-    p {
-      font-size: 1.1em;
+
+    .section {
+      margin-top: 30px;
+    }
+
+    .section h2 {
+      font-size: 1.3em;
+      color: #0077cc;
+      margin-bottom: 10px;
+    }
+
+    .profile-info p,
+    .psp-card p {
+      margin: 6px 0;
+      font-size: 1em;
       color: #555;
     }
+
+    .psp-card {
+      background-color: #eef6ff;
+      border: 1px solid #0077cc;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
     .logout {
       margin-top: 30px;
       padding: 12px 24px;
@@ -34,7 +63,11 @@
       border-radius: 6px;
       cursor: pointer;
       font-size: 1em;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
+
     .logout:hover {
       background-color: #cc0000;
     }
@@ -42,8 +75,22 @@
 </head>
 <body>
   <div class="container">
-    <h1>Dashboard Utente</h1>
-    <p>Benvenuto nella tua area riservata. Qui potrai gestire i tuoi PSP e accedere ai servizi digitali.</p>
+    <h1 class="title">Area Riservata Neksəs</h1>
+
+    <div class="section profile-info" id="profilo">
+      <h2>Profilo Utente</h2>
+      <p><strong>Email:</strong> <span id="email"></span></p>
+      <p><strong>Nome:</strong> <span id="nome"></span></p>
+      <p><strong>Cognome:</strong> <span id="cognome"></span></p>
+      <p><strong>Business:</strong> <span id="business"></span></p>
+      <p><strong>Registrato il:</strong> <span id="created"></span></p>
+    </div>
+
+    <div class="section" id="psp">
+      <h2>PSP Attivati</h2>
+      <div id="psp-list"></div>
+    </div>
+
     <button class="logout" onclick="logout()">Esci</button>
   </div>
 
@@ -54,18 +101,89 @@
       'YOUR_PUBLIC_ANON_KEY'
     );
 
-    async function logout() {
-      await sbClient.auth.signOut();
+    const params = new URLSearchParams(window.location.search);
+    const email = params.get("email");
+
+    if (!email) {
+      alert("Accesso non valido. Torna alla pagina di attivazione.");
       window.location.href = "/activate.html";
     }
 
-    // Verifica autenticazione
-    sbClient.auth.getUser().then(({ data, error }) => {
-      if (!data?.user) {
-        alert("Accesso non autorizzato. Torna alla pagina di attivazione.");
+    document.getElementById("email").textContent = email;
+
+    // Recupera dati utente
+    sbClient
+      .from("users")
+      .select("id, name, surname, business_name, created_at")
+      .eq("email", email)
+      .maybeSingle()
+      .then(async ({ data: user, error }) => {
+        if (error || !user) {
+          console.error("Errore nel recupero profilo:", error);
+          alert("Impossibile recuperare il profilo utente.");
+          return;
+        }
+
+        document.getElementById("nome").textContent = user.name || "-";
+        document.getElementById("cognome").textContent = user.surname || "-";
+        document.getElementById("business").textContent = user.business_name || "-";
+        document.getElementById("created").textContent = new Date(user.created_at).toLocaleDateString();
+
+        // Recupera PSP attivati
+        const { data: pspList, error: pspError } = await sbClient
+          .from("user_psp")
+          .select("psp_name, created_at")
+          .eq("user_id", user.id);
+
+        if (pspError) {
+          console.error("Errore nel recupero PSP:", pspError);
+          return;
+        }
+
+        const container = document.getElementById("psp-list");
+        if (!pspList || pspList.length === 0) {
+          container.innerHTML = "<p>Nessun PSP attivato.</p>";
+          return;
+        }
+
+        for (const psp of pspList) {
+          // Recupera condizioni personalizzate
+          const { data: condizioni, error: condError } = await sbClient
+            .from("user_psp_conditions")
+            .select("circuit_name, fixed_fee, percentage_fee, currency")
+            .eq("user_id", user.id)
+            .eq("psp_id", psp.psp_id);
+
+          const card = document.createElement("div");
+          card.className = "psp-card";
+          card.innerHTML = `
+            <p><strong>PSP:</strong> ${psp.psp_name}</p>
+            <p><strong>Attivato il:</strong> ${new Date(psp.created_at).toLocaleDateString()}</p>
+          `;
+
+          if (condizioni && condizioni.length > 0) {
+            condizioni.forEach(c => {
+              card.innerHTML += `
+                <p><strong>Circuito:</strong> ${c.circuit_name}</p>
+                <p>💶 <strong>Fee fissa:</strong> ${c.fixed_fee} ${c.currency}</p>
+                <p>📊 <strong>Fee %:</strong> ${c.percentage_fee}%</p>
+                <hr />
+              `;
+            });
+          } else {
+            card.innerHTML += `<p><em>Nessuna condizione salvata.</em></p>`;
+          }
+
+          container.appendChild(card);
+        }
+      });
+
+    function logout() {
+      sbClient.auth.signOut().then(() => {
         window.location.href = "/activate.html";
-      }
-    });
+      });
+    }
   </script>
 </body>
 </html>
+>
