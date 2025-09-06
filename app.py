@@ -1,34 +1,38 @@
 import os
 import jwt
-#aggiunto il 6/9
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt
-#fine aggiunta
 from functools import wraps
-from flask import Flask, jsonify, render_template, request
-from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
-from config import Config
-from sqlalchemy.exc import IntegrityError
+from uuid import UUID as UUID_cls
+
+from flask import Flask, jsonify, render_template, request, redirect, url_for
+from flask_jwt_extended import JWTManager
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import and_
 
+from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
+from config import Config
+
+# 🔧 Inizializzazione app
 app = Flask(__name__)
 app.config.from_object(Config)
-db.init_app(app)
-# aggiunto il 6/9 ore 18:46
 app.config["JWT_SECRET_KEY"] = app.config["SUPABASE_JWT_SECRET"]
+db.init_app(app)
 jwt = JWTManager(app)
-# fine aggiunta
+
+# 🔹 Costanti
 CIRCUITS = ['Visa', 'Mastercard', 'Amex', 'Diners']
 
+# 🔐 Verifica JWT manuale
 def verify_jwt(auth_header):
     if not auth_header or not auth_header.lower().startswith('bearer '):
         return None
     token = auth_header.split(' ', 1)[1].strip()
     try:
         payload = jwt.decode(token, app.config['SUPABASE_JWT_SECRET'], algorithms=['HS256'])
-        return payload  # contiene 'sub' (user_id) ed 'email'
+        return payload
     except jwt.PyJWTError:
         return None
 
+# 🔐 Decoratore di protezione
 def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -39,7 +43,9 @@ def require_auth(f):
         return f(*args, **kwargs)
     return wrapper
 
-@app.route('/activate', methods=['GET'])
+# 🌐 Pagine pubbliche
+@app.route('/')
+@app.route('/activate')
 def activate_page():
     return render_template(
         'activate.html',
@@ -47,14 +53,19 @@ def activate_page():
         supabase_anon_key=app.config['SUPABASE_ANON_KEY']
     )
 
-@app.route('/', methods=['GET', 'HEAD'])
-def show_activate():
-    return render_template(
-        'activate.html',
-        supabase_url=app.config['SUPABASE_URL'],
-        supabase_anon_key=app.config['SUPABASE_ANON_KEY']
-    )
+@app.route('/redirect')
+def auth_redirect():
+    return "Accesso completato! Ora puoi chiudere questa finestra o tornare all'app."
 
+@app.route('/choose-psp')
+def choose_psp():
+    return render_template('choose-psp.html')
+
+@app.route('/register-psp')
+def register_psp():
+    return render_template('register-psp.html')
+
+# 📊 API PSP disponibili
 @app.get('/api/psps')
 def list_psps():
     psps = PSPCondition.query.filter_by(active=True).order_by(PSPCondition.psp_name.asc()).all()
@@ -66,12 +77,13 @@ def list_psps():
         'currency': p.currency or 'EUR'
     } for p in psps])
 
+# 🔐 API attivazione servizio
 @app.post('/api/activate')
 @require_auth
 def activate_service():
     data = request.get_json(force=True)
     profile_data = data.get('profile', {})
-    selections = data.get('selections', [])  # [{'psp_id': '...', 'circuit': 'Visa'}, ...]
+    selections = data.get('selections', [])
 
     user_id = request.jwt.get('sub')
     email = request.jwt.get('email')
@@ -79,43 +91,40 @@ def activate_service():
     if not user_id or not email:
         return jsonify({'error': 'invalid token'}), 400
 
-    # 1) Upsert user locale
+    # Upsert utente
     user = User.query.get(user_id)
     if not user:
         user = User(id=user_id, email=email)
         db.session.add(user)
-    else:
-        if user.email != email:
-            user.email = email
+    elif user.email != email:
+        user.email = email
 
-    # 2) Upsert profilo
+    # Upsert profilo
     profile = Profile.query.filter_by(user_id=user_id).first()
     if not profile:
         profile = Profile(user_id=user_id)
         db.session.add(profile)
 
-    # Aggiorna i campi forniti (non obbligatori)
     for k in ['first_name', 'last_name', 'company', 'vat_number', 'phone']:
         if k in profile_data and profile_data[k] is not None:
             setattr(profile, k, str(profile_data[k]).strip())
 
-    # 3) Attiva PSP/circuiti (se mancanti), usando default da psp_conditions
+    # Attivazione PSP/circuiti
     for item in selections:
         psp_id = item.get('psp_id')
         circuit = item.get('circuit')
         if not psp_id or not circuit:
             continue
+
         psp = PSPCondition.query.filter_by(id=psp_id, active=True).first()
         if not psp:
             continue
 
-        # Crea relazione user_psp (se mancante)
         link = UserPSP.query.filter_by(user_id=user_id, psp_id=psp.id).first()
         if not link:
             link = UserPSP(user_id=user_id, psp_id=psp.id, active=True)
             db.session.add(link)
 
-        # Crea condizione granulare per circuito (se mancante)
         exists = UserPSPCondition.query.filter(and_(
             UserPSPCondition.user_id == user_id,
             UserPSPCondition.psp_id == psp.id,
@@ -141,46 +150,29 @@ def activate_service():
 
     return jsonify({'status': 'ok'})
 
-from flask import redirect, url_for
-from flask import render_template
-
-@app.route('/redirect')
-def auth_redirect():
-    # Qui potresti leggere il token dalla query string se serve
-    return "Accesso completato! Ora puoi chiudere questa finestra o tornare all'app."
-
-@app.route('/choose-psp')
-def choose_psp():
-    return render_template('choose-psp.html')
-
-@app.route('/register-psp')
-def register_psp():
-    return render_template('register-psp.html')
-
-from uuid import UUID as UUID_cls
-from flask import request, render_template
-from models import User, Profile, PSPCondition, UserPSPCondition
-from sqlalchemy.exc import SQLAlchemyError
-
+# 📋 Dashboard utente
 @app.route('/dashboard')
 def dashboard():
     email = request.args.get("email")
-    print("Email ricevuta:", email)
+    print(f"Email ricevuta: {email}")
+
+    if not email:
+        return "Email mancante", 400
 
     try:
         user = User.query.filter_by(email=email).first()
-        print("Utente trovato:", user)
+        print(f"Utente trovato: {user}")
         if not user:
             return "Utente non trovato", 404
     except SQLAlchemyError as e:
-        print("Errore nella query utente:", e)
+        print(f"Errore nella query utente: {e}")
         return "Errore interno (user)", 500
 
     try:
         profile = Profile.query.filter_by(user_id=user.id).first()
-        print("Profilo trovato:", profile)
+        print(f"Profilo trovato: {profile}")
     except SQLAlchemyError as e:
-        print("Errore nella query profilo:", e)
+        print(f"Errore nella query profilo: {e}")
         profile = None
 
     try:
@@ -195,14 +187,13 @@ def dashboard():
         ).filter(
             UserPSPCondition.user_id == user.id
         ).all()
-        print("PSP trovati:", psps)
+        print(f"PSP trovati: {psps}")
     except SQLAlchemyError as e:
-        print("Errore nella query PSP:", e)
+        print(f"Errore nella query PSP: {e}")
         psps = []
 
     try:
         return render_template("dashboard.html", user=user, profile=profile, psps=psps)
     except Exception as e:
-        print("Errore nel rendering del template:", e)
+        print(f"Errore nel rendering del template: {e}")
         return "Errore interno (template)", 500
-
