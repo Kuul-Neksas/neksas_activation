@@ -246,15 +246,17 @@
       return;
     }
 
-    setTimeout(() => {
-  console.log("Redirect avviato");
-  alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-  window.location.replace("https://neksas-activation.onrender.com/dashboard");
-}, 10);
+   // se utente esiste → vai alla dashboard
+if (existingUser) {
+  setTimeout(() => {
+    console.log("Redirect avviato");
+    alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
+    window.location.replace("https://neksas-activation.onrender.com/dashboard");
+  }, 10);
 
-console.log("Questo non dovrebbe mai apparire se l'utente esiste.");
-
-    }
+  console.log("Questo non dovrebbe mai apparire se l'utente esiste.");
+  return;
+}
 
     // 2. Utente nuovo → registrazione + invio magic link
     const { error: insertError } = await sbClient.from("users").insert([
