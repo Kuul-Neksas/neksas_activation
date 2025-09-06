@@ -1,4 +1,7 @@
 import os, jwt
+#aggiunto il 6/9
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt
+#fine aggiunta
 from functools import wraps
 from flask import Flask, jsonify, render_template, request
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
@@ -9,7 +12,10 @@ from sqlalchemy import and_
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
-
+# aggiunto il 6/9 ore 18:46
+app.config["JWT_SECRET_KEY"] = app.config["SUPABASE_JWT_SECRET"]
+jwt = JWTManager(app)
+# fine aggiunta
 CIRCUITS = ['Visa', 'Mastercard', 'Amex', 'Diners']
 
 def verify_jwt(auth_header):
