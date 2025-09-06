@@ -1,4 +1,5 @@
-import os, jwt
+import os
+import jwt
 #aggiunto il 6/9
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt
 #fine aggiunta
