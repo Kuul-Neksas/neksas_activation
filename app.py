@@ -150,7 +150,7 @@ def choose_psp():
 def register_psp():
     return render_template('register-psp.html')
 
-@@app.route('/dashboard')
+@app.route('/dashboard')
 @require_auth
 def dashboard():
     user_id = request.jwt.get('sub')
