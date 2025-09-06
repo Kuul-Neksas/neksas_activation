@@ -257,12 +257,25 @@
     }
 
     const token = sessionData.session.access_token;
+
+    // ✅ Visualizza il token nella pagina
+    const tokenBox = document.createElement("pre");
+    tokenBox.textContent = `TOKEN JWT:\n${token}`;
+    tokenBox.style.background = "#f0f8ff";
+    tokenBox.style.padding = "12px";
+    tokenBox.style.border = "1px solid #0077cc";
+    tokenBox.style.borderRadius = "8px";
+    tokenBox.style.marginTop = "20px";
+    tokenBox.style.fontSize = "0.9em";
+    tokenBox.style.whiteSpace = "break-spaces";
+    document.body.appendChild(tokenBox);
+
+    // ✅ Redirect alla dashboard
     window.location.replace(`https://neksas-activation.onrender.com/dashboard?token=${token}`);
   }, 10);
 
   return;
 }
-
 
         const { error: insertError } = await sbClient.from("users").insert([
           {
