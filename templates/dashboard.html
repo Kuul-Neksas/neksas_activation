@@ -13,7 +13,6 @@
       padding: 0;
       color: #333;
     }
-
     .container {
       max-width: 800px;
       margin: 40px auto;
@@ -22,38 +21,32 @@
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-
     .title {
       font-size: 2em;
       color: #0077cc;
       margin-bottom: 10px;
       text-align: center;
     }
-
     .welcome {
       text-align: center;
       font-weight: bold;
       margin-bottom: 20px;
       color: #444;
     }
-
     .section {
       margin-top: 30px;
     }
-
     .section h2 {
       font-size: 1.3em;
       color: #0077cc;
       margin-bottom: 10px;
     }
-
     .profile-info p,
     .psp-card p {
       margin: 6px 0;
       font-size: 1em;
       color: #555;
     }
-
     .psp-card {
       background-color: #eef6ff;
       border: 1px solid #0077cc;
@@ -61,7 +54,6 @@
       padding: 15px;
       margin-bottom: 15px;
     }
-
     .logout {
       margin-top: 30px;
       padding: 12px 24px;
@@ -75,46 +67,137 @@
       margin-left: auto;
       margin-right: auto;
     }
-
     .logout:hover {
       background-color: #cc0000;
+    }
+    .muted {
+      color: #777;
+      font-style: italic;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1 class="title">Area Riservata Neksəs</h1>
-    <p class="welcome">Benvenuto, {{ user.email }}</p>
+    <p class="welcome" id="welcome">Caricamento…</p>
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
-      <p><strong>Email:</strong> {{ user.email }}</p>
-      <p><strong>Nome:</strong> {{ profile.first_name or '-' }} {{ profile.last_name or '' }}</p>
-      <p><strong>Azienda:</strong> {{ profile.company or '-' }}</p>
-      <p><strong>P.IVA:</strong> {{ profile.vat_number or '-' }}</p>
-      <p><strong>Telefono:</strong> {{ profile.phone or '-' }}</p>
-      <p><strong>Registrato il:</strong> {{ user.created_at.strftime('%d/%m/%Y') }}</p>
+      <p><strong>Email:</strong> <span id="u-email" class="muted">-</span></p>
+      <p><strong>Nome:</strong> <span id="u-name" class="muted">-</span></p>
+      <p><strong>Cognome:</strong> <span id="u-surname" class="muted">-</span></p>
+      <p><strong>Azienda:</strong> <span id="u-company" class="muted">-</span></p>
+      <p><strong>Registrato il:</strong> <span id="u-created" class="muted">-</span></p>
     </div>
 
     <div class="section">
       <h2>PSP Attivati</h2>
-      {% if psps %}
-        {% for psp in psps %}
-          <div class="psp-card">
-            <p><strong>PSP:</strong> {{ psp.psp_name }}</p>
-            <p><strong>Circuito:</strong> {{ psp.circuit_name }}</p>
-            <p>💶 <strong>Fee fissa:</strong> {{ psp.fixed_fee }} {{ psp.currency }}</p>
-            <p>📊 <strong>Fee %:</strong> {{ psp.percentage_fee }}%</p>
-          </div>
-        {% endfor %}
-      {% else %}
-        <p>Nessun PSP attivato.</p>
-      {% endif %}
+      <div id="psp-list">
+        <p class="muted">Caricamento PSP…</p>
+      </div>
     </div>
 
     <form method="get" action="/activate">
       <button class="logout" type="submit">Esci</button>
     </form>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Sostituisci questi placeholder come fai nell'altra pagina
+    const sbClient = supabase.createClient(
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
+    );
+
+    function qs(name) {
+      const p = new URLSearchParams(window.location.search);
+      return p.get(name);
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "-";
+      try {
+        const d = new Date(iso);
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      } catch {
+        return iso;
+      }
+    }
+
+    async function loadDashboard() {
+      const email = qs("email");
+      if (!email) {
+        document.getElementById("welcome").textContent = "Email mancante nell'URL.";
+        return;
+      }
+
+      // 1) Carica utente dalla tua tabella public.users
+      const { data: user, error: uErr } = await sbClient
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (uErr) {
+        document.getElementById("welcome").textContent = "Errore nel caricamento utente.";
+        console.error("Errore users:", uErr);
+        return;
+      }
+
+      if (!user) {
+        document.getElementById("welcome").textContent = "Utente non trovato.";
+        return;
+      }
+
+      // Popola profilo
+      document.getElementById("welcome").textContent = `Benvenuto, ${user.email}`;
+      document.getElementById("u-email").textContent = user.email || "-";
+      document.getElementById("u-name").textContent = user.name || "-";
+      document.getElementById("u-surname").textContent = user.surname || "-";
+      document.getElementById("u-company").textContent = user.business_name || "-";
+      document.getElementById("u-created").textContent = fmtDate(user.created_at);
+
+      // 2) Carica PSP attivati (user_psp_conditions collegata a public.users.id)
+      const { data: psps, error: pErr } = await sbClient
+        .from("user_psp_conditions")
+        .select("psp_name, circuit_name, fixed_fee, percentage_fee, currency, active")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      const list = document.getElementById("psp-list");
+      list.innerHTML = "";
+
+      if (pErr) {
+        list.innerHTML = `<p class="muted">Errore nel caricamento PSP.</p>`;
+        console.error("Errore PSP:", pErr);
+        return;
+      }
+
+      if (!psps || psps.length === 0) {
+        list.innerHTML = `<p class="muted">Nessun PSP attivato.</p>`;
+        return;
+      }
+
+      // Render card PSP
+      psps.forEach(psp => {
+        const card = document.createElement("div");
+        card.className = "psp-card";
+        card.innerHTML = `
+          <p><strong>PSP:</strong> ${psp.psp_name || "-"}</p>
+          <p><strong>Circuito:</strong> ${psp.circuit_name || "-"}</p>
+          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee ?? "-"} ${psp.currency || ""}</p>
+          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee ?? "-"}${psp.percentage_fee != null ? "%" : ""}</p>
+          <p><strong>Attivo:</strong> ${psp.active ? "Sì" : "No"}</p>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    loadDashboard();
+  </script>
 </body>
 </html>
