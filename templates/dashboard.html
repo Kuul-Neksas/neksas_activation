@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Neksəs</title>
-  <p>Benvenuto, {{ user.email }}</p>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -28,6 +28,13 @@
       color: #0077cc;
       margin-bottom: 10px;
       text-align: center;
+    }
+
+    .welcome {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #444;
     }
 
     .section {
@@ -77,6 +84,7 @@
 <body>
   <div class="container">
     <h1 class="title">Area Riservata Neksəs</h1>
+    <p class="welcome">Benvenuto, {{ user.email }}</p>
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
@@ -110,4 +118,3 @@
   </div>
 </body>
 </html>
-
