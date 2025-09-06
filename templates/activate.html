@@ -223,65 +223,62 @@
     );
 
     async function handleActivation(event) {
-      event.preventDefault();
-      const email = document.getElementById('email').value.trim().toLowerCase();
-      const password = document.getElementById('password').value;
+  event.preventDefault();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
 
-      if (password.length < 8) {
-        alert("La password deve contenere almeno 8 caratteri.");
+  if (password.length < 8) {
+    alert("La password deve contenere almeno 8 caratteri.");
+    return;
+  }
+
+  try {
+    // 1. Provo login su auth.users
+    const { error: loginError } = await sbClient.auth.signInWithPassword({ email, password });
+
+    if (!loginError) {
+      // Login ok → dashboard
+      window.location.href = "https://neksas-activation.onrender.com/dashboard";
+      return;
+    }
+
+    // 2. Se login fallisce, provo registrazione
+    if (loginError.message.includes("Invalid login credentials")) {
+      const { data: signUpData, error: signUpError } = await sbClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
+        }
+      });
+
+      if (signUpError) {
+        alert("Errore registrazione: " + signUpError.message);
         return;
       }
 
-      try {
-        // Verifica se l'utente esiste già
-        const { data: existingUser, error: fetchError } = await sbClient
-          .from("users")
-          .select("email")
-          .eq("email", email)
-          .maybeSingle();
-
-        if (fetchError) {
-          console.error("Errore verifica utente:", fetchError.message);
-          alert("Errore nella verifica dell'utente.");
-          return;
+      // 3. Inserisco anche in public.users
+      const { error: insertError } = await sbClient.from("users").insert([
+        {
+          email,
+          password_hash: password, // ⚠️ meglio hashare lato backend
+          is_active: true
         }
+      ]);
 
-        if (existingUser) {
-          // Login utente esistente
-          const { error: loginError } = await sbClient.auth.signInWithPassword({
-            email,
-            password
-          });
-
-          if (loginError) {
-            alert("Errore login: " + loginError.message);
-            return;
-          }
-
-          // Redirect alla dashboard
-          window.location.href = "https://neksas-activation.onrender.com/choose-psp/dashboard";
-        } else {
-          // Registrazione nuovo utente
-          const { error: signUpError } = await sbClient.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
-            }
-          });
-
-          if (signUpError) {
-            alert("Errore registrazione: " + signUpError.message);
-            return;
-          }
-
-          alert("Registrazione completata! Controlla la tua email per confermare.");
-        }
-      } catch (err) {
-        console.error("Errore inatteso:", err);
-        alert("Si è verificato un errore inatteso.");
+      if (insertError) {
+        console.error("Errore inserimento in users:", insertError);
       }
+
+      alert("Registrazione completata! Controlla la tua email per confermare.");
+    } else {
+      alert("Errore login: " + loginError.message);
     }
+  } catch (err) {
+    console.error("Errore inatteso:", err);
+    alert("Si è verificato un errore inatteso.");
+  }
+}
 
     function signInWithProvider(provider) {
       alert(`Accesso con ${provider} non ancora disponibile.`);
