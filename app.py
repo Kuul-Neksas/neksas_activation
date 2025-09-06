@@ -151,6 +151,15 @@ def register_psp():
     return render_template('register-psp.html')
 
 @app.route('/dashboard')
+@require_auth
 def dashboard():
-    return render_template('dashboard.html')
+    user_id = request.jwt.get('sub')
+    email = request.jwt.get('email')
 
+    if not user_id or not email:
+        return "Token non valido", 401
+
+    user = User.query.get(user_id)
+    profile = Profile.query.filter_by(user_id=user_id).first()
+
+    return render_template('dashboard.html', user=user, profile=profile)
