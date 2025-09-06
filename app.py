@@ -179,3 +179,4 @@ def dashboard():
     ).filter(UserPSPCondition.user_id == user.id).all()
 
     return render_template("dashboard.html", user=user, profile=profile, psps=psps)
+
