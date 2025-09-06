@@ -248,7 +248,9 @@
         if (existingUser) {
           setTimeout(() => {
             alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-            window.location.replace("https://neksas-activation.onrender.com/dashboard");
+            const session = await sbClient.auth.getSession();
+            const token = session?.session?.access_token;
+            window.location.replace(`https://neksas-activation.onrender.com/dashboard?token=${token}`);
           }, 10);
           return;
         }
