@@ -248,7 +248,7 @@
         if (existingUser) {
           setTimeout(() => {
             alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-            window.location.replace("https://neksas-activation.onrender.com/dashboard");
+            window.location.replace(`https://neksas-activation.onrender.com/dashboard.html?email=${encodeURIComponent(email)}`);
           }, 10);
           return;
         }
