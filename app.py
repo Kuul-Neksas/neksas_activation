@@ -157,10 +157,12 @@ def register_psp():
     return render_template('register-psp.html')
 
 @app.route('/dashboard')
-@require_auth
+@jwt_required()
 def dashboard():
-    user_id = request.jwt.get('sub')
-    email = request.jwt.get('email')
+    claims = get_jwt()
+    user_id = claims.get("sub")
+    email = claims.get("email")
+
 
     if not user_id or not email:
         return "Token non valido", 401
