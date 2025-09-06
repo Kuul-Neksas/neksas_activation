@@ -248,9 +248,10 @@
 
     if (existingUser) {
       // Utente già registrato → messaggio + redirect diretto
-      alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-      window.location.href = "https://neksas-activation.onrender.com/dashboard";
-      return;
+      setTimeout(() => {
+  window.location.href = "https://neksas-activation.onrender.com/dashboard";
+}, 100);
+return;
     }
 
     // 2. Utente nuovo → registrazione + invio magic link
