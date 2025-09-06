@@ -215,84 +215,77 @@
     </div>
   </div>
 
-   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const sbClient = supabase.createClient(
       "{{ supabase_url }}",
       "{{ supabase_anon_key }}"
     );
 
-  async function handleActivation(event) {
-  event.preventDefault();
-  const email = document.getElementById('email').value.trim().toLowerCase();
-  const password = document.getElementById('password').value;
+    async function handleActivation(event) {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
 
-  if (password.length < 8) {
-    alert("La password deve contenere almeno 8 caratteri.");
-    return;
-  }
-
-  try {
-    // 1. Verifica se l'utente è già presente nella tua tabella users
-    const { data: existingUser, error: fetchError } = await sbClient
-      .from("users")
-      .select("id, email")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Errore nella verifica utente:", fetchError.message);
-      alert("Errore durante la verifica dell'utente.");
-      return;
-    }
-
-   // se utente esiste → vai alla dashboard
-if (existingUser) {
-  setTimeout(() => {
-    console.log("Redirect avviato");
-    alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-    window.location.replace("https://neksas-activation.onrender.com/dashboard");
-  }, 10);
-
-  console.log("Questo non dovrebbe mai apparire se l'utente esiste.");
-  return;
-}
-
-    // 2. Utente nuovo → registrazione + invio magic link
-    const { error: insertError } = await sbClient.from("users").insert([
-      {
-        email,
-        password_hash: password, // ⚠️ meglio hashare lato backend
-        is_active: true
+      if (password.length < 8) {
+        alert("La password deve contenere almeno 8 caratteri.");
+        return;
       }
-    ]);
 
-    if (insertError) {
-      console.error("Errore inserimento in users:", insertError.message);
-      alert("Errore registrazione utente.");
-      return;
-    }
+      try {
+        const { data: existingUser, error: fetchError } = await sbClient
+          .from("users")
+          .select("id, email")
+          .eq("email", email)
+          .maybeSingle();
 
-    const { error: otpError } = await sbClient.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
+        if (fetchError) {
+          console.error("Errore nella verifica utente:", fetchError.message);
+          alert("Errore durante la verifica dell'utente.");
+          return;
+        }
+
+        if (existingUser) {
+          setTimeout(() => {
+            alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
+            window.location.replace("https://neksas-activation.onrender.com/dashboard");
+          }, 10);
+          return;
+        }
+
+        const { error: insertError } = await sbClient.from("users").insert([
+          {
+            email,
+            password_hash: password,
+            is_active: true
+          }
+        ]);
+
+        if (insertError) {
+          console.error("Errore inserimento in users:", insertError.message);
+          alert("Errore registrazione utente.");
+          return;
+        }
+
+        const { error: otpError } = await sbClient.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: "https://neksas-activation.onrender.com/choose-psp"
+          }
+        });
+
+        if (otpError) {
+          console.error("Errore invio magic link:", otpError.message);
+          alert("Errore nell'invio del link di conferma.");
+          return;
+        }
+
+        alert("Registrazione completata! Controlla la tua email per confermare e continuare.");
+      } catch (err) {
+        console.error("Errore inatteso:", err);
+        alert("Si è verificato un errore inatteso.");
       }
-    });
-
-    if (otpError) {
-      console.error("Errore invio magic link:", otpError.message);
-      alert("Errore nell'invio del link di conferma.");
-      return;
     }
-
-    alert("Registrazione completata! Controlla la tua email per confermare e continuare.");
-
-  } catch (err) {
-    console.error("Errore inatteso:", err);
-    alert("Si è verificato un errore inatteso.");
-  }
-}
 
     function signInWithProvider(provider) {
       alert(`Accesso con ${provider} non ancora disponibile.`);
@@ -300,3 +293,4 @@ if (existingUser) {
   </script>
 </body>
 </html>
+
