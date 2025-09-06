@@ -257,10 +257,11 @@ if (loginError.message.includes("Invalid login credentials")) {
   }
 
   if (existingUser) {
-    // Utente già registrato → reindirizza alla dashboard
-    window.location.href = "https://neksas-activation.onrender.com/dashboard";
-    return;
-  }
+  // Utente già registrato → messaggio + redirect
+  alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
+  window.location.href = "https://neksas-activation.onrender.com/dashboard";
+  return;
+}
 
   // Altrimenti è un nuovo utente → inserisco in users
   const { error: insertError } = await sbClient.from("users").insert([
