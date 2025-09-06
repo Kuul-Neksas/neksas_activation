@@ -77,113 +77,36 @@
   <div class="container">
     <h1 class="title">Area Riservata Neksəs</h1>
 
-    <div class="section profile-info" id="profilo">
+    <div class="section profile-info">
       <h2>Profilo Utente</h2>
-      <p><strong>Email:</strong> <span id="email"></span></p>
-      <p><strong>Nome:</strong> <span id="nome"></span></p>
-      <p><strong>Cognome:</strong> <span id="cognome"></span></p>
-      <p><strong>Business:</strong> <span id="business"></span></p>
-      <p><strong>Registrato il:</strong> <span id="created"></span></p>
+      <p><strong>Email:</strong> {{ user.email }}</p>
+      <p><strong>Nome:</strong> {{ profile.first_name or '-' }} {{ profile.last_name or '' }}</p>
+      <p><strong>Azienda:</strong> {{ profile.company or '-' }}</p>
+      <p><strong>P.IVA:</strong> {{ profile.vat_number or '-' }}</p>
+      <p><strong>Telefono:</strong> {{ profile.phone or '-' }}</p>
+      <p><strong>Registrato il:</strong> {{ user.created_at.strftime('%d/%m/%Y') }}</p>
     </div>
 
-    <div class="section" id="psp">
+    <div class="section">
       <h2>PSP Attivati</h2>
-      <div id="psp-list"></div>
+      {% if psps %}
+        {% for psp in psps %}
+          <div class="psp-card">
+            <p><strong>PSP:</strong> {{ psp.psp_name }}</p>
+            <p><strong>Circuito:</strong> {{ psp.circuit_name }}</p>
+            <p>💶 <strong>Fee fissa:</strong> {{ psp.fixed_fee }} {{ psp.currency }}</p>
+            <p>📊 <strong>Fee %:</strong> {{ psp.percentage_fee }}%</p>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>Nessun PSP attivato.</p>
+      {% endif %}
     </div>
 
-    <button class="logout" onclick="logout()">Esci</button>
+    <form method="get" action="/activate">
+      <button class="logout" type="submit">Esci</button>
+    </form>
   </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const sbClient = supabase.createClient(
-      'https://YOUR_PROJECT_ID.supabase.co',
-      'YOUR_PUBLIC_ANON_KEY'
-    );
-
-    const params = new URLSearchParams(window.location.search);
-    const email = params.get("email");
-
-    if (!email) {
-      alert("Accesso non valido. Torna alla pagina di attivazione.");
-      window.location.href = "/activate.html";
-    }
-
-    document.getElementById("email").textContent = email;
-
-    // Recupera dati utente
-    sbClient
-      .from("users")
-      .select("id, name, surname, business_name, created_at")
-      .eq("email", email)
-      .maybeSingle()
-      .then(async ({ data: user, error }) => {
-        if (error || !user) {
-          console.error("Errore nel recupero profilo:", error);
-          alert("Impossibile recuperare il profilo utente.");
-          return;
-        }
-
-        document.getElementById("nome").textContent = user.name || "-";
-        document.getElementById("cognome").textContent = user.surname || "-";
-        document.getElementById("business").textContent = user.business_name || "-";
-        document.getElementById("created").textContent = new Date(user.created_at).toLocaleDateString();
-
-        // Recupera PSP attivati
-        const { data: pspList, error: pspError } = await sbClient
-          .from("user_psp")
-          .select("psp_name, created_at")
-          .eq("user_id", user.id);
-
-        if (pspError) {
-          console.error("Errore nel recupero PSP:", pspError);
-          return;
-        }
-
-        const container = document.getElementById("psp-list");
-        if (!pspList || pspList.length === 0) {
-          container.innerHTML = "<p>Nessun PSP attivato.</p>";
-          return;
-        }
-
-        for (const psp of pspList) {
-          // Recupera condizioni personalizzate
-          const { data: condizioni, error: condError } = await sbClient
-            .from("user_psp_conditions")
-            .select("circuit_name, fixed_fee, percentage_fee, currency")
-            .eq("user_id", user.id)
-            .eq("psp_id", psp.psp_id);
-
-          const card = document.createElement("div");
-          card.className = "psp-card";
-          card.innerHTML = `
-            <p><strong>PSP:</strong> ${psp.psp_name}</p>
-            <p><strong>Attivato il:</strong> ${new Date(psp.created_at).toLocaleDateString()}</p>
-          `;
-
-          if (condizioni && condizioni.length > 0) {
-            condizioni.forEach(c => {
-              card.innerHTML += `
-                <p><strong>Circuito:</strong> ${c.circuit_name}</p>
-                <p>💶 <strong>Fee fissa:</strong> ${c.fixed_fee} ${c.currency}</p>
-                <p>📊 <strong>Fee %:</strong> ${c.percentage_fee}%</p>
-                <hr />
-              `;
-            });
-          } else {
-            card.innerHTML += `<p><em>Nessuna condizione salvata.</em></p>`;
-          }
-
-          container.appendChild(card);
-        }
-      });
-
-    function logout() {
-      sbClient.auth.signOut().then(() => {
-        window.location.href = "/activate.html";
-      });
-    }
-  </script>
 </body>
 </html>
->
+
