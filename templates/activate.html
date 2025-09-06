@@ -246,14 +246,23 @@
         }
 
         if (existingUser) {
-          setTimeout(() => {
-            alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
-            const session = await sbClient.auth.getSession();
-            const token = session?.session?.access_token;
-            window.location.replace(`https://neksas-activation.onrender.com/dashboard?token=${token}`);
-          }, 10);
-          return;
-        }
+  alert("Utente già iscritto! Verrai indirizzato alla tua dashboard.");
+
+  setTimeout(async () => {
+    const { data: sessionData, error: sessionError } = await sbClient.auth.getSession();
+
+    if (sessionError || !sessionData?.session?.access_token) {
+      alert("Errore nel recupero del token di sessione.");
+      return;
+    }
+
+    const token = sessionData.session.access_token;
+    window.location.replace(`https://neksas-activation.onrender.com/dashboard?token=${token}`);
+  }, 10);
+
+  return;
+}
+
 
         const { error: insertError } = await sbClient.from("users").insert([
           {
