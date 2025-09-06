@@ -98,13 +98,12 @@
     </div>
 
     <form method="get" action="/activate">
-      <button class="logout" type="submit">Esci</button>
+      <button class="logout" type="submit">Torna all’attivazione</button>
     </form>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // Sostituisci questi placeholder come fai nell'altra pagina
     const sbClient = supabase.createClient(
       "{{ supabase_url }}",
       "{{ supabase_anon_key }}"
@@ -130,50 +129,48 @@
 
     async function loadDashboard() {
       const email = qs("email");
-      if (!email) {
-        document.getElementById("welcome").textContent = "Email mancante nell'URL.";
+      if (!email || !email.includes("@")) {
+        document.getElementById("welcome").textContent = "Email non valida o mancante.";
         return;
       }
 
-      // 1) Carica utente dalla tua tabella public.users
       const { data: user, error: uErr } = await sbClient
         .from("users")
         .select("*")
         .eq("email", email)
         .maybeSingle();
 
-      if (uErr) {
-        document.getElementById("welcome").textContent = "Errore nel caricamento utente.";
+      if (uErr || !user) {
+        document.getElementById("welcome").textContent = "Utente non trovato.";
         console.error("Errore users:", uErr);
         return;
       }
 
-      if (!user) {
-        document.getElementById("welcome").textContent = "Utente non trovato.";
-        return;
-      }
+      const { data: profile, error: pErr } = await sbClient
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      // Popola profilo
       document.getElementById("welcome").textContent = `Benvenuto, ${user.email}`;
       document.getElementById("u-email").textContent = user.email || "-";
-      document.getElementById("u-name").textContent = user.name || "-";
-      document.getElementById("u-surname").textContent = user.surname || "-";
-      document.getElementById("u-company").textContent = user.business_name || "-";
+      document.getElementById("u-name").textContent = profile?.first_name || "-";
+      document.getElementById("u-surname").textContent = profile?.last_name || "-";
+      document.getElementById("u-company").textContent = profile?.company || "-";
       document.getElementById("u-created").textContent = fmtDate(user.created_at);
 
-      // 2) Carica PSP attivati (user_psp_conditions collegata a public.users.id)
-      const { data: psps, error: pErr } = await sbClient
+      const { data: psps, error: psErr } = await sbClient
         .from("user_psp_conditions")
-        .select("psp_name, circuit_name, fixed_fee, percentage_fee, currency, active")
+        .select("psp_name, circuit_name, fixed_fee, percentage_fee, currency, active, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       const list = document.getElementById("psp-list");
       list.innerHTML = "";
 
-      if (pErr) {
+      if (psErr) {
         list.innerHTML = `<p class="muted">Errore nel caricamento PSP.</p>`;
-        console.error("Errore PSP:", pErr);
+        console.error("Errore PSP:", psErr);
         return;
       }
 
@@ -182,12 +179,11 @@
         return;
       }
 
-      // Render card PSP
       psps.forEach(psp => {
         const card = document.createElement("div");
         card.className = "psp-card";
         card.innerHTML = `
-          <p><strong>PSP:</strong> ${psp.psp_name || "-"}</p>
+          <p><strong>PSP:</strong> ${psp.psp_name || "Non disponibile"}</p>
           <p><strong>Circuito:</strong> ${psp.circuit_name || "-"}</p>
           <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee ?? "-"} ${psp.currency || ""}</p>
           <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee ?? "-"}${psp.percentage_fee != null ? "%" : ""}</p>
@@ -196,6 +192,12 @@
         list.appendChild(card);
       });
     }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
+
 
     loadDashboard();
   </script>
