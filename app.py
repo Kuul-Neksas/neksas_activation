@@ -1,10 +1,8 @@
 import os
-import jwt
-from functools import wraps
 from uuid import UUID as UUID_cls
+from functools import wraps
 
 from flask import Flask, jsonify, render_template, request, redirect, url_for
-from flask_jwt_extended import JWTManager
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import and_
 
@@ -14,34 +12,10 @@ from config import Config
 # 🔧 Inizializzazione app
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config["JWT_SECRET_KEY"] = app.config["SUPABASE_JWT_SECRET"]
 db.init_app(app)
-jwt = JWTManager(app)
 
 # 🔹 Costanti
 CIRCUITS = ['Visa', 'Mastercard', 'Amex', 'Diners']
-
-# 🔐 Verifica JWT manuale
-def verify_jwt(auth_header):
-    if not auth_header or not auth_header.lower().startswith('bearer '):
-        return None
-    token = auth_header.split(' ', 1)[1].strip()
-    try:
-        payload = jwt.decode(token, app.config['SUPABASE_JWT_SECRET'], algorithms=['HS256'])
-        return payload
-    except jwt.PyJWTError:
-        return None
-
-# 🔐 Decoratore di protezione
-def require_auth(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        payload = verify_jwt(request.headers.get('Authorization'))
-        if not payload:
-            return jsonify({'error': 'unauthorized'}), 401
-        request.jwt = payload
-        return f(*args, **kwargs)
-    return wrapper
 
 # 🌐 Pagine pubbliche
 @app.route('/')
@@ -77,80 +51,7 @@ def list_psps():
         'currency': p.currency or 'EUR'
     } for p in psps])
 
-# 🔐 API attivazione servizio
-@app.post('/api/activate')
-@require_auth
-def activate_service():
-    data = request.get_json(force=True)
-    profile_data = data.get('profile', {})
-    selections = data.get('selections', [])
-
-    user_id = request.jwt.get('sub')
-    email = request.jwt.get('email')
-
-    if not user_id or not email:
-        return jsonify({'error': 'invalid token'}), 400
-
-    # Upsert utente
-    user = User.query.get(user_id)
-    if not user:
-        user = User(id=user_id, email=email)
-        db.session.add(user)
-    elif user.email != email:
-        user.email = email
-
-    # Upsert profilo
-    profile = Profile.query.filter_by(user_id=user_id).first()
-    if not profile:
-        profile = Profile(user_id=user_id)
-        db.session.add(profile)
-
-    for k in ['first_name', 'last_name', 'company', 'vat_number', 'phone']:
-        if k in profile_data and profile_data[k] is not None:
-            setattr(profile, k, str(profile_data[k]).strip())
-
-    # Attivazione PSP/circuiti
-    for item in selections:
-        psp_id = item.get('psp_id')
-        circuit = item.get('circuit')
-        if not psp_id or not circuit:
-            continue
-
-        psp = PSPCondition.query.filter_by(id=psp_id, active=True).first()
-        if not psp:
-            continue
-
-        link = UserPSP.query.filter_by(user_id=user_id, psp_id=psp.id).first()
-        if not link:
-            link = UserPSP(user_id=user_id, psp_id=psp.id, active=True)
-            db.session.add(link)
-
-        exists = UserPSPCondition.query.filter(and_(
-            UserPSPCondition.user_id == user_id,
-            UserPSPCondition.psp_id == psp.id,
-            UserPSPCondition.circuit_name == circuit
-        )).first()
-
-        if not exists:
-            db.session.add(UserPSPCondition(
-                user_id=user_id,
-                psp_id=psp.id,
-                circuit_name=circuit,
-                fixed_fee=psp.fixed_fee,
-                percentage_fee=psp.percentage_fee,
-                currency=psp.currency,
-                active=True
-            ))
-
-    try:
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({'error': 'conflict'}), 409
-
-    return jsonify({'status': 'ok'})
-
-# 📋 Dashboard utente
+# 📋 Dashboard utente (prototipo semplificato: passa email in query string)
 @app.route('/dashboard')
 def dashboard():
     email = request.args.get("email")
@@ -197,3 +98,10 @@ def dashboard():
     except Exception as e:
         print(f"Errore nel rendering del template: {e}")
         return "Errore interno (template)", 500
+
+
+# 🔧 Avvio sviluppo
+if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True, host="0.0.0.0", port=5000)
