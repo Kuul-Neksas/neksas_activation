@@ -83,67 +83,92 @@
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
-      <p><strong>Email:</strong> {{ user.email }}</p>
-      <p><strong>Nome:</strong> {{ profile.name if profile else "-" }}</p>
-      <p><strong>Cognome:</strong> {{ profile.surname if profile else "-" }}</p>
-      <p><strong>Azienda:</strong> {{ profile.business_name if profile else "-" }}</p>
-      <p><strong>Registrato il:</strong> {{ user.created_at.strftime("%d/%m/%Y") if user.created_at else "-" }}</p>
+      <p><strong>Email:</strong> <span id="email"></span></p>
+      <p><strong>Nome:</strong> <span id="name">-</span></p>
+      <p><strong>Cognome:</strong> <span id="surname">-</span></p>
+      <p><strong>Azienda:</strong> <span id="business">-</span></p>
+      <p><strong>Registrato il:</strong> <span id="created">-</span></p>
     </div>
 
     <div class="section">
       <h2>PSP Attivati</h2>
-      {% if psps %}
-        {% for p in psps %}
-        <div class="psp-card">
-          <p><strong>PSP:</strong> {{ p.psp_name }}</p>
-          <p><strong>Circuito:</strong> {{ p.circuit_name }}</p>
-          <p>💶 <strong>Fee fissa:</strong> {{ p.fixed_fee }} {{ p.currency }}</p>
-          <p>📊 <strong>Fee %:</strong> {{ p.percentage_fee }}%</p>
-        </div>
-        {% endfor %}
-      {% else %}
-        <p class="muted">Nessun PSP attivato.</p>
-      {% endif %}
+      <div id="psp-list">
+        <p class="muted">Caricamento PSP...</p>
+      </div>
     </div>
 
     <form method="get" action="/activate">
       <button class="logout" type="submit">Torna all’attivazione</button>
     </form>
   </div>
- <script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-  const supabaseUrl = "{{ supabase_url }}";
-  const supabaseKey = "{{ supabase_key }}";
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-  const email = "{{ email }}";
+    const supabaseUrl = "{{ supabase_url }}";
+    const supabaseKey = "{{ supabase_key }}";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-  async function loadUser() {
-    if (!email) {
-      document.body.innerHTML = "<h2>Email non fornita</h2>";
-      return;
+    const email = "{{ email }}";
+
+    async function loadUser() {
+      if (!email) {
+        document.body.innerHTML = "<h2>Email non fornita</h2>";
+        return;
+      }
+
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (error || !user) {
+        document.body.innerHTML = "<h2>Utente non trovato</h2>";
+        return;
+      }
+
+      document.getElementById("user-email").textContent = user.email;
+      document.getElementById("email").textContent = user.email;
+      document.getElementById("name").textContent = user.name || "-";
+      document.getElementById("surname").textContent = user.surname || "-";
+      document.getElementById("business").textContent = user.business_name || "-";
+      document.getElementById("created").textContent = user.created_at
+        ? new Date(user.created_at).toLocaleDateString("it-IT")
+        : "-";
+
+      loadPSPs(user.id);
     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle();
+    async function loadPSPs(userId) {
+      const { data, error } = await supabase
+        .from("user_psp_conditions")
+        .select("circuit_name, psp_conditions(psp_name, currency, fixed_fee, percentage_fee)")
+        .eq("user_id", userId);
 
-    if (error || !data) {
-      document.body.innerHTML = "<h2>Utente non trovato</h2>";
-      return;
+      const container = document.getElementById("psp-list");
+      container.innerHTML = "";
+
+      if (error || !data || data.length === 0) {
+        container.innerHTML = "<p class='muted'>Nessun PSP attivato.</p>";
+        return;
+      }
+
+      data.forEach((entry) => {
+        const psp = entry.psp_conditions;
+        const card = document.createElement("div");
+        card.className = "psp-card";
+        card.innerHTML = `
+          <p><strong>PSP:</strong> ${psp.psp_name}</p>
+          <p><strong>Circuito:</strong> ${entry.circuit_name}</p>
+          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee} ${psp.currency}</p>
+          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee}%</p>
+        `;
+        container.appendChild(card);
+      });
     }
 
-    document.getElementById("user-email").textContent = data.email;
-  }
-
-  loadUser();
-</script>
-
-
+    loadUser();
+  </script>
 </body>
 </html>
-
-
