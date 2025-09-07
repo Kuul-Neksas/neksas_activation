@@ -79,127 +79,36 @@
 <body>
   <div class="container">
     <h1 class="title">Area Riservata Neksəs</h1>
-    <p class="welcome" id="welcome">Caricamento…</p>
+    <p class="welcome">Benvenuto, {{ user.email }}</p>
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
-      <p><strong>Email:</strong> <span id="u-email" class="muted">-</span></p>
-      <p><strong>Nome:</strong> <span id="u-name" class="muted">-</span></p>
-      <p><strong>Cognome:</strong> <span id="u-surname" class="muted">-</span></p>
-      <p><strong>Azienda:</strong> <span id="u-company" class="muted">-</span></p>
-      <p><strong>Registrato il:</strong> <span id="u-created" class="muted">-</span></p>
+      <p><strong>Email:</strong> {{ user.email }}</p>
+      <p><strong>Nome:</strong> {{ profile.first_name if profile else "-" }}</p>
+      <p><strong>Cognome:</strong> {{ profile.last_name if profile else "-" }}</p>
+      <p><strong>Azienda:</strong> {{ profile.company if profile else "-" }}</p>
+      <p><strong>Registrato il:</strong> {{ user.created_at.strftime("%d/%m/%Y") if user.created_at else "-" }}</p>
     </div>
 
     <div class="section">
       <h2>PSP Attivati</h2>
-      <div id="psp-list">
-        <p class="muted">Caricamento PSP…</p>
-      </div>
+      {% if psps %}
+        {% for p in psps %}
+        <div class="psp-card">
+          <p><strong>PSP:</strong> {{ p.psp_name }}</p>
+          <p><strong>Circuito:</strong> {{ p.circuit_name }}</p>
+          <p>💶 <strong>Fee fissa:</strong> {{ p.fixed_fee }} {{ p.currency }}</p>
+          <p>📊 <strong>Fee %:</strong> {{ p.percentage_fee }}%</p>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">Nessun PSP attivato.</p>
+      {% endif %}
     </div>
 
     <form method="get" action="/activate">
       <button class="logout" type="submit">Torna all’attivazione</button>
     </form>
   </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const sbClient = supabase.createClient(
-      "{{ supabase_url }}",
-      "{{ supabase_anon_key }}"
-    );
-
-    function qs(name) {
-      const p = new URLSearchParams(window.location.search);
-      return p.get(name);
-    }
-
-    function fmtDate(iso) {
-      if (!iso) return "-";
-      try {
-        const d = new Date(iso);
-        const dd = String(d.getDate()).padStart(2, "0");
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-      } catch {
-        return iso;
-      }
-    }
-
-    async function loadDashboard() {
-      const email = qs("email");
-      if (!email || !email.includes("@")) {
-        document.getElementById("welcome").textContent = "Email non valida o mancante.";
-        return;
-      }
-
-      const { data: user, error: uErr } = await sbClient
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (uErr || !user) {
-        document.getElementById("welcome").textContent = "Utente non trovato.";
-        console.error("Errore users:", uErr);
-        return;
-      }
-
-      const { data: profile, error: pErr } = await sbClient
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      document.getElementById("welcome").textContent = `Benvenuto, ${user.email}`;
-      document.getElementById("u-email").textContent = user.email || "-";
-      document.getElementById("u-name").textContent = profile?.first_name || "-";
-      document.getElementById("u-surname").textContent = profile?.last_name || "-";
-      document.getElementById("u-company").textContent = profile?.company || "-";
-      document.getElementById("u-created").textContent = fmtDate(user.created_at);
-
-      const { data: psps, error: psErr } = await sbClient
-        .from("user_psp_conditions")
-        .select("psp_name, circuit_name, fixed_fee, percentage_fee, currency, active, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      const list = document.getElementById("psp-list");
-      list.innerHTML = "";
-
-      if (psErr) {
-        list.innerHTML = `<p class="muted">Errore nel caricamento PSP.</p>`;
-        console.error("Errore PSP:", psErr);
-        return;
-      }
-
-      if (!psps || psps.length === 0) {
-        list.innerHTML = `<p class="muted">Nessun PSP attivato.</p>`;
-        return;
-      }
-
-      psps.forEach(psp => {
-        const card = document.createElement("div");
-        card.className = "psp-card";
-        card.innerHTML = `
-          <p><strong>PSP:</strong> ${psp.psp_name || "Non disponibile"}</p>
-          <p><strong>Circuito:</strong> ${psp.circuit_name || "-"}</p>
-          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee ?? "-"} ${psp.currency || ""}</p>
-          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee ?? "-"}${psp.percentage_fee != null ? "%" : ""}</p>
-          <p><strong>Attivo:</strong> ${psp.active ? "Sì" : "No"}</p>
-        `;
-        list.appendChild(card);
-      });
-    }
-
-    loadDashboard();
-  </script>
-</body>
-</html>
-
-
-    loadDashboard();
-  </script>
 </body>
 </html>
