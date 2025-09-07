@@ -4,7 +4,6 @@ from sqlalchemy.sql import func, text
 
 db = SQLAlchemy()
 
-# USERS (public schema)
 class User(db.Model):
     __tablename__ = 'users'
     __table_args__ = {'schema': 'public'}
@@ -19,12 +18,11 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, server_default=func.now())
     is_active = db.Column(db.Boolean, default=True)
 
-    profiles = db.relationship('Profile', backref='user', uselist=False)
-    user_psp = db.relationship('UserPSP', backref='user')
-    user_psp_conditions = db.relationship('UserPSPCondition', backref='user')
+    # Relazioni
+    user_psp = db.relationship('UserPSP', backref='user', lazy=True)
+    user_psp_conditions = db.relationship('UserPSPCondition', backref='user', lazy=True)
 
 
-# PROFILES (public schema, FK verso auth.users)
 class Profile(db.Model):
     __tablename__ = 'profiles'
     __table_args__ = {'schema': 'public'}
@@ -36,7 +34,6 @@ class Profile(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
 
 
-# PSP CONDITIONS
 class PSPCondition(db.Model):
     __tablename__ = 'psp_conditions'
     __table_args__ = {'schema': 'public'}
@@ -49,10 +46,9 @@ class PSPCondition(db.Model):
     active = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, server_default=func.now())
 
-    user_psp_conditions = db.relationship('UserPSPCondition', backref='psp')
+    user_psp_conditions = db.relationship('UserPSPCondition', backref='psp', lazy=True)
 
 
-# USER PSP (usa psp_name, non FK verso PSPCondition)
 class UserPSP(db.Model):
     __tablename__ = 'user_psp'
     __table_args__ = {'schema': 'public'}
@@ -64,7 +60,6 @@ class UserPSP(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
 
 
-# USER PSP CONDITIONS
 class UserPSPCondition(db.Model):
     __tablename__ = 'user_psp_conditions'
     __table_args__ = {'schema': 'public'}
