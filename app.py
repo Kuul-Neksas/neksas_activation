@@ -94,10 +94,17 @@ def dashboard():
         psps = []
 
     try:
-        return render_template("dashboard.html", user=user, profile=profile, psps=psps)
-    except Exception as e:
-        print(f"Errore nel rendering del template: {e}")
-        return "Errore interno (template)", 500
+    user = User.query.filter_by(email=email).first()
+    print(f"Utente trovato: {user}")
+    if not user:
+        print("Nessun utente trovato con questa email.")
+        return "Utente non trovato", 404
+except Exception as e:
+    import traceback
+    print("Errore nella query utente:")
+    traceback.print_exc()
+    return "Errore interno (user)", 500
+
 
 
 # 🔧 Avvio sviluppo
