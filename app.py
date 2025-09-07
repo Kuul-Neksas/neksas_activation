@@ -77,6 +77,7 @@ def dashboard():
         import traceback
         print("❌ Errore nella query utente:")
         traceback.print_exc()
+        raise
         return "Errore interno (user)", 500
 
     try:
