@@ -79,14 +79,14 @@
 <body>
   <div class="container">
     <h1 class="title">Area Riservata Neksəs</h1>
-    <p class="welcome">Benvenuto, {{ user.email }}</p>
+    <p class="welcome">Benvenuto, {{ user.name or user.email }}</p>
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
       <p><strong>Email:</strong> {{ user.email }}</p>
-      <p><strong>Nome:</strong> {{ profile.first_name if profile else "-" }}</p>
-      <p><strong>Cognome:</strong> {{ profile.last_name if profile else "-" }}</p>
-      <p><strong>Azienda:</strong> {{ profile.company if profile else "-" }}</p>
+      <p><strong>Nome:</strong> {{ profile.name if profile else "-" }}</p>
+      <p><strong>Cognome:</strong> {{ profile.surname if profile else "-" }}</p>
+      <p><strong>Azienda:</strong> {{ profile.business_name if profile else "-" }}</p>
       <p><strong>Registrato il:</strong> {{ user.created_at.strftime("%d/%m/%Y") if user.created_at else "-" }}</p>
     </div>
 
@@ -112,3 +112,4 @@
   </div>
 </body>
 </html>
+
