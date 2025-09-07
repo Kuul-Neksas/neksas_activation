@@ -54,7 +54,7 @@ def list_psps():
         'currency': p.currency or 'EUR'
     } for p in psps])
 
-# 📋 Dashboard utente (prototipo semplificato: passa email in query string)
+# 📋 Dashboard utente (versione semplificata lato client)
 @app.route('/dashboard')
 def dashboard():
     email = request.args.get("email", "").strip().lower()
@@ -63,52 +63,12 @@ def dashboard():
     if not email:
         return "Email mancante", 400
 
-    try:
-        # 🔍 Test: stampa tutti gli utenti
-        all_users = User.query.all()
-        print(f"👥 Utenti nel DB: {[u.email for u in all_users]}")
-
-        user = User.query.filter_by(email=email).first()
-        print(f"🔎 Utente trovato: {user}")
-        if not user:
-            print("⚠️ Nessun utente trovato con questa email.")
-            return "Utente non trovato", 404
-    except Exception as e:
-        import traceback
-        print("❌ Errore nella query utente:")
-        traceback.print_exc()
-        raise
-        return "Errore interno (user)", 500
-
-    try:
-        profile = Profile.query.filter_by(user_id=user.id).first()
-        print(f"📄 Profilo trovato: {profile}")
-    except SQLAlchemyError as e:
-        print(f"❌ Errore nella query profilo: {e}")
-        profile = None
-
-    try:
-        psps = db.session.query(
-            PSPCondition.psp_name,
-            PSPCondition.currency,
-            PSPCondition.fixed_fee,
-            PSPCondition.percentage_fee,
-            UserPSPCondition.circuit_name
-        ).join(
-            UserPSPCondition, PSPCondition.id == UserPSPCondition.psp_id
-        ).filter(
-            UserPSPCondition.user_id == user.id
-        ).all()
-        print(f"🏦 PSP trovati: {psps}")
-    except SQLAlchemyError as e:
-        print(f"❌ Errore nella query PSP: {e}")
-        psps = []
-
-    try:
-        return render_template("dashboard.html", user=user, profile=profile, psps=psps)
-    except Exception as e:
-        print(f"❌ Errore nel rendering del template: {e}")
-        return "Errore interno (template)", 500
+    return render_template(
+        "dashboard.html",
+        email=email,
+        supabase_url=app.config['SUPABASE_URL'],
+        supabase_key=app.config['SUPABASE_ANON_KEY']
+    )
 
 # 🔧 Avvio sviluppo
 if __name__ == "__main__":
