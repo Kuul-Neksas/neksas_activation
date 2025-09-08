@@ -14,13 +14,6 @@
       padding: 0;
       color: #333;
     }
-    .logo-container {
-      padding: 20px;
-      text-align: center;
-    }
-    .logo-container img {
-      height: 180px;
-    }
     .container {
       max-width: 800px;
       margin: 20px auto;
@@ -28,27 +21,43 @@
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center; /* tutto centrato */
     }
-    .title {
-      text-align: center;
+
+    /* HERO (Area Riservata + logo + welcome) */
+    .hero-top {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap; /* logo va sotto al titolo se schermo piccolo */
+      margin-bottom: 15px;
+    }
+    .hero-title {
       font-size: 1.8em;
       color: #0077cc;
-      margin-bottom: 10px;
+      font-weight: bold;
     }
-    .welcome {
-      text-align: center;
+    .hero-logo {
+      height: 180px;
+      width: auto;
+    }
+    .hero-welcome {
       font-size: 1.4em;
       font-weight: bold;
       margin-bottom: 30px;
       color: #444;
     }
+
     .section {
       margin-top: 30px;
+      text-align: left; /* dati e card allineati a sinistra */
     }
     .section h2 {
       font-size: 1.3em;
       color: #0077cc;
       margin-bottom: 10px;
+      text-align: center; /* titoli sezioni centrati */
     }
     .profile-info p,
     .psp-card p {
@@ -82,6 +91,7 @@
     .muted {
       color: #777;
       font-style: italic;
+      text-align: center;
     }
     #pspChart {
       max-width: 400px;
@@ -98,40 +108,20 @@
       margin-bottom: 20px;
       text-align: center;
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px 40px;
-      background-color: #fff;
-      border-bottom: 2px solid #0077cc;
-      margin-bottom: 20px;
-   }
-
-  .header .title {
-     font-size: 1.8em;
-     color: #0077cc;
-     font-weight: bold;
-  }
-
-  .header-logo {
-     height: 60px;
-  }
-
   </style>
 </head>
 <body>
-
- <body>
-  <div class="header">
-    <div class="title">Area Riservata</div>
-    <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="header-logo" />
-  </div>
-
   <div class="container">
     <div id="error-message"></div>
-    <div class="welcome">Benvenuto <span id="user-email"></span></div>
 
+    <!-- HERO: Area Riservata + logo + welcome -->
+    <div class="hero">
+      <div class="hero-top">
+        <div class="hero-title">Area Riservata</div>
+        <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="hero-logo" />
+      </div>
+      <div class="hero-welcome">Benvenuto <span id="user-email"></span></div>
+    </div>
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
@@ -270,7 +260,6 @@
         return;
       }
 
-      // Conta le transazioni per PSP
       const counts = {};
       data.forEach((row) => {
         counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
@@ -279,7 +268,7 @@
       const labels = Object.keys(counts);
       const values = Object.values(counts);
 
-      chartContainer.innerHTML = ""; // pulisce il messaggio
+      chartContainer.innerHTML = "";
       canvas.style.display = "block";
 
       new Chart(canvas, {
@@ -299,4 +288,5 @@
   </script>
 </body>
 </html>
+
 
