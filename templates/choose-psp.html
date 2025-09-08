@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Scegli il tuo PSP - Neksəs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -106,6 +107,13 @@
     button[type="submit"]:hover {
       background-color: #005fa3;
     }
+
+    .error {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -159,44 +167,53 @@
       </div>
 
       <button type="submit">Continua</button>
+      <div id="error-message" class="error" style="display:none;"></div>
     </form>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const sbClient = supabase.createClient(
-      "{{ supabase_url }}",
-      "{{ supabase_anon_key }}"
-    );
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const sbClient = createClient("{{ supabase_url }}", "{{ supabase_anon_key }}");
+
+    function showError(msg) {
+      const errorDiv = document.getElementById("error-message");
+      errorDiv.textContent = msg;
+      errorDiv.style.display = "block";
+    }
 
     async function handlePSPSelection(event) {
       event.preventDefault();
 
       const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
-      const nome = document.querySelector('input[name="nome"]').value;
-      const cognome = document.querySelector('input[name="cognome"]').value;
-      const business = document.querySelector('input[name="business"]').value;
+      const nome = document.querySelector('input[name="nome"]').value.trim();
+      const cognome = document.querySelector('input[name="cognome"]').value.trim();
+      const business = document.querySelector('input[name="business"]').value.trim();
       const email = new URLSearchParams(window.location.search).get('email');
 
       if (!email) {
-        alert("Email non trovata nell'URL.");
+        showError("Email non trovata nell'URL.");
         return;
       }
 
-      // Aggiorna utente
-      await sbClient.from('users').update({ nome, cognome, business }).eq('email', email);
+      try {
+        // Aggiorna utente
+        await sbClient.from('users').update({ name: nome, surname: cognome, business_name: business }).eq('email', email);
 
-      // Inserisci profilo
-      await sbClient.from('profiles').insert([{ email, nome, cognome, business }]);
+        // Inserisci profilo
+        await sbClient.from('profiles').upsert([{ id: email, name: nome, surname: cognome, business_name: business }]);
 
-      // Inserisci PSP selezionati
-      for (const psp of selectedPSPs) {
-        await sbClient.from('user_psp').insert([{ email, psp }]);
+        // Inserisci PSP selezionati
+        for (const psp of selectedPSPs) {
+          await sbClient.from('user_psp').insert([{ user_id: email, psp_name: psp, accepted_terms: true }]);
+        }
+
+        window.location.href = `/dashboard?email=${encodeURIComponent(email)}`;
+      } catch (error) {
+        console.error("Errore durante l'invio dei dati:", error);
+        showError("Errore durante l'invio dei dati. Riprova.");
       }
-
-      window.location.href = "/dashboard";
     }
   </script>
 </body>
 </html>
-
