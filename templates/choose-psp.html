@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scegli il tuo PSP - Neksəs</title>
+  <title>Completa l’iscrizione - Neksəs</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <style>
     body {
@@ -23,24 +23,39 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
 
+    .logo {
+      display: block;
+      margin: 0 auto 10px;
+      height: 60px;
+    }
+
     .title {
       font-size: 2em;
       color: #0077cc;
-      margin-bottom: 10px;
       text-align: center;
+      margin-bottom: 10px;
     }
 
     .subtitle {
-      font-size: 1.1em;
+      font-size: 1.2em;
       color: #555;
-      margin-bottom: 30px;
       text-align: center;
+      margin: 30px 0 20px;
     }
 
     .psp-form {
       display: flex;
       flex-direction: column;
       gap: 20px;
+    }
+
+    .user-info input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1em;
+      width: 100%;
+      margin-bottom: 10px;
     }
 
     .psp-list {
@@ -80,17 +95,15 @@
       text-decoration: underline;
     }
 
-    .user-info {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    .terms {
+      font-size: 0.9em;
+      text-align: center;
+      margin-top: 20px;
     }
 
-    .user-info input {
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1em;
+    .terms a {
+      color: #0077cc;
+      text-decoration: underline;
     }
 
     button[type="submit"] {
@@ -114,60 +127,64 @@
       margin-top: 10px;
       text-align: center;
     }
+
+    .success {
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="title">Scegli il tuo PSP</h1>
-    <p class="subtitle">Seleziona uno o più provider di servizi di pagamento da attivare con Neksəs.</p>
+    <img src="/static/loghi/neksas-logo.png" alt="Logo Neksəs" class="logo" />
+    <h1 class="title">Completa l’iscrizione al servizio</h1>
 
     <form class="psp-form" onsubmit="handlePSPSelection(event)">
-      <div class="psp-list">
-        <!-- PSP 1 -->
-        <div class="psp-item">
-          <img src="/static/loghi/psp1.png" alt="Logo PSP1" />
-          <div class="psp-info">
-            <label>
-              <input type="checkbox" name="psp" value="psp1" />
-              PSP One
-            </label>
-            <a href="/condizioni/psp1.pdf" target="_blank">Condizioni</a>
-          </div>
-        </div>
-
-        <!-- PSP 2 -->
-        <div class="psp-item">
-          <img src="/static/loghi/psp2.png" alt="Logo PSP2" />
-          <div class="psp-info">
-            <label>
-              <input type="checkbox" name="psp" value="psp2" />
-              PSP Two
-            </label>
-            <a href="/condizioni/psp2.pdf" target="_blank">Condizioni</a>
-          </div>
-        </div>
-
-        <!-- PSP 3 -->
-        <div class="psp-item">
-          <img src="/static/loghi/psp3.png" alt="Logo PSP3" />
-          <div class="psp-info">
-            <label>
-              <input type="checkbox" name="psp" value="psp3" />
-              PSP Three
-            </label>
-            <a href="/condizioni/psp3.pdf" target="_blank">Condizioni</a>
-          </div>
-        </div>
-      </div>
-
       <div class="user-info">
         <input type="text" name="nome" placeholder="Nome" required />
         <input type="text" name="cognome" placeholder="Cognome" required />
         <input type="text" name="business" placeholder="Nome attività" required />
+        <input type="text" name="iban" placeholder="IBAN" required />
       </div>
+
+      <h2 class="subtitle">Scegli i PSP da attivare</h2>
+      <div class="psp-list">
+        ${[
+          "stripe", "sumup", "paypal", "nexi", "ayden", "binance",
+          "satispay", "ticketrestaurant", "pellegrini", "sodexo", "buoniregalo"
+        ].map(psp => `
+          <div class="psp-item">
+            <img src="/static/loghi/${psp}.png" alt="Logo ${psp.toUpperCase()}" />
+            <div class="psp-info">
+              <label>
+                <input type="checkbox" name="psp" value="${psp}" />
+                ${psp.replace(/buoniregalo/, "Buoni Regalo")
+                     .replace(/ticketrestaurant/, "Ticket Restaurant")
+                     .replace(/pellegrini/, "Pellegrini")
+                     .replace(/sodexo/, "Sodexo")
+                     .replace(/satispay/, "Satispay")
+                     .replace(/binance/, "Binance")
+                     .replace(/ayden/, "Ayden")
+                     .replace(/nexi/, "Nexi")
+                     .replace(/paypal/, "PayPal")
+                     .replace(/sumup/, "SumUp")
+                     .replace(/stripe/, "Stripe")}
+              </label>
+              <a href="/condizioni/${psp}.pdf" target="_blank">Condizioni</a>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+
+      <p class="terms">
+        Procedendo si accettano le nostre <a href="/condizioni/privacy.pdf" target="_blank">condizioni generali</a>
+      </p>
 
       <button type="submit">Continua</button>
       <div id="error-message" class="error" style="display:none;"></div>
+      <div id="success-message" class="success" style="display:none;"></div>
     </form>
   </div>
 
@@ -182,6 +199,12 @@
       errorDiv.style.display = "block";
     }
 
+    function showSuccess(msg) {
+      const successDiv = document.getElementById("success-message");
+      successDiv.textContent = msg;
+      successDiv.style.display = "block";
+    }
+
     async function handlePSPSelection(event) {
       event.preventDefault();
 
@@ -189,6 +212,7 @@
       const nome = document.querySelector('input[name="nome"]').value.trim();
       const cognome = document.querySelector('input[name="cognome"]').value.trim();
       const business = document.querySelector('input[name="business"]').value.trim();
+      const iban = document.querySelector('input[name="iban"]').value.trim();
       const email = new URLSearchParams(window.location.search).get('email');
 
       if (!email) {
@@ -197,23 +221,34 @@
       }
 
       try {
-        // Aggiorna utente
+        // Salva dati utente nel DB
         await sbClient.from('users').update({ name: nome, surname: cognome, business_name: business }).eq('email', email);
-
-        // Inserisci profilo
         await sbClient.from('profiles').upsert([{ id: email, name: nome, surname: cognome, business_name: business }]);
 
-        // Inserisci PSP selezionati
+        // Simula chiamate API ai PSP selezionati
         for (const psp of selectedPSPs) {
           await sbClient.from('user_psp').insert([{ user_id: email, psp_name: psp, accepted_terms: true }]);
-        }
 
-        window.location.href = `/dashboard?email=${encodeURIComponent(email)}`;
-      } catch (error) {
-        console.error("Errore durante l'invio dei dati:", error);
-        showError("Errore durante l'invio dei dati. Riprova.");
-      }
-    }
-  </script>
-</body>
-</html>
+          // Simulazione chiamata API
+          console.log(`Invio dati a ${psp.toUpperCase()}...`);
+          const response = await simulatePSPRegistration(psp, { email, nome, cognome, business, iban });
+          console.log(`Risposta da ${psp.toUpperCase()}:`, response);
+          showSuccess("Iscrizione completata con successo!");
+setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
+} catch (error) {
+  console.error("Errore:", error);
+  showError("Errore durante l'invio dei dati. Riprova.");
+}
+}
+async function simulatePSPRegistration(psp, userData) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve({
+        status: "success",
+        message: `Iscrizione a ${psp.toUpperCase()} completata.`,
+        iban: userData.iban
+      });
+    }, 1000);
+  });
+}
+
