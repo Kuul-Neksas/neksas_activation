@@ -98,19 +98,40 @@
       margin-bottom: 20px;
       text-align: center;
     }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 40px;
+      background-color: #fff;
+      border-bottom: 2px solid #0077cc;
+      margin-bottom: 20px;
+   }
+
+  .header .title {
+     font-size: 1.8em;
+     color: #0077cc;
+     font-weight: bold;
+  }
+
+  .header-logo {
+     height: 60px;
+  }
+
   </style>
 </head>
 <body>
 
-  <div class="logo-container">
-    <img src="/static/logo-neksas.png" alt="Logo Neksəs" />
+ <body>
+  <div class="header">
+    <div class="title">Area Riservata</div>
+    <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="header-logo" />
   </div>
 
   <div class="container">
     <div id="error-message"></div>
-
-    <div class="title">Area Riservata Neksəs</div>
     <div class="welcome">Benvenuto <span id="user-email"></span></div>
+
 
     <div class="section profile-info">
       <h2>Profilo Utente</h2>
