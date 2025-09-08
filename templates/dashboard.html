@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Neksəs</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -16,6 +16,7 @@
     }
     .logo-container {
       padding: 20px;
+      text-align: center;
     }
     .logo-container img {
       height: 180px;
@@ -86,6 +87,17 @@
       max-width: 400px;
       margin: 20px auto;
     }
+    #error-message {
+      display: none;
+      background-color: #ffe0e0;
+      border: 1px solid #ff4d4d;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+      color: #cc0000;
+      margin-bottom: 20px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -95,6 +107,8 @@
   </div>
 
   <div class="container">
+    <div id="error-message"></div>
+
     <div class="title">Area Riservata Neksəs</div>
     <div class="welcome">Benvenuto <span id="user-email"></span></div>
 
@@ -133,12 +147,24 @@
     const supabaseUrl = "{{ supabase_url }}";
     const supabaseKey = "{{ supabase_key }}";
     const supabase = createClient(supabaseUrl, supabaseKey);
-
     const email = "{{ email }}";
 
+    function showError(message) {
+      const errorDiv = document.getElementById("error-message");
+      errorDiv.textContent = message;
+      errorDiv.style.display = "block";
+    }
+
+    function hideError() {
+      const errorDiv = document.getElementById("error-message");
+      errorDiv.style.display = "none";
+    }
+
     async function loadUser() {
+      hideError();
+
       if (!email) {
-        document.body.innerHTML = "<h2>Email non fornita</h2>";
+        showError("Email non fornita.");
         return;
       }
 
@@ -149,7 +175,7 @@
         .maybeSingle();
 
       if (error || !user) {
-        document.body.innerHTML = "<h2>Utente non trovato</h2>";
+        showError("Utente non trovato o errore nel caricamento.");
         return;
       }
 
@@ -175,7 +201,12 @@
       const container = document.getElementById("psp-list");
       container.innerHTML = "";
 
-      if (error || !data || data.length === 0) {
+      if (error) {
+        showError("Errore nel caricamento dei PSP.");
+        return;
+      }
+
+      if (!data || data.length === 0) {
         container.innerHTML = "<p class='muted'>Nessun PSP attivato.</p>";
         return;
       }
@@ -208,37 +239,10 @@
       const chartContainer = document.getElementById("chart-container");
       const canvas = document.getElementById("pspChart");
 
-      if (error || !data || data.length === 0) {
-        chartContainer.innerHTML = "<p class='muted'>Nessuna transazione per questo mese.</p>";
+      if (error) {
+        showError("Errore nel caricamento delle transazioni.");
         return;
       }
 
-      const counts = {};
-      for (const tx of data) {
-        counts[tx.psp_id] = (counts[tx.psp_id] || 0) + 1;
-      }
-
-      const pspIds = Object.keys(counts);
-      const { data: pspData } = await supabase
-        .from("psp_conditions")
-        .select("id, psp_name")
-        .in("id", pspIds);
-
-      const labels = pspData.map(psp => psp.psp_name);
-      const values = pspData.map(psp => counts[psp.id]);
-
-      canvas.style.display = "block";
-
-      new Chart(canvas.getContext("2d"), {
-        type: "pie",
-        data: {
-          labels: labels,
-          datasets: [{
-            data: values,
-            backgroundColor: ["#0077cc", "#00cc88", "#ffcc00", "#ff4d4d", "#8888ff"]
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend
+      if (!data || data.length === 0) {
+        chartContainer.innerHTML = "<p class='muted
