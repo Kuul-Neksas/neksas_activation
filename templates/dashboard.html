@@ -218,8 +218,8 @@
         card.innerHTML = `
           <p><strong>PSP:</strong> ${psp.psp_name}</p>
           <p><strong>Circuito:</strong> ${entry.circuit_name}</p>
-          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee} ${psp.currency}</p>
-          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee}%</p>
+          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee ?? "-"} ${psp.currency ?? ""}</p>
+          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee ?? "-"}%</p>
         `;
         container.appendChild(card);
       });
@@ -240,9 +240,42 @@
       const canvas = document.getElementById("pspChart");
 
       if (error) {
-        showError("Errore nel caricamento delle transazioni.");
+        chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
         return;
       }
 
       if (!data || data.length === 0) {
-        chartContainer.innerHTML = "<p class='muted
+        chartContainer.innerHTML = "<p class='muted'>Nessuna transazione registrata per questo mese.</p>";
+        return;
+      }
+
+      // Conta le transazioni per PSP
+      const counts = {};
+      data.forEach((row) => {
+        counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
+      });
+
+      const labels = Object.keys(counts);
+      const values = Object.values(counts);
+
+      chartContainer.innerHTML = ""; // pulisce il messaggio
+      canvas.style.display = "block";
+
+      new Chart(canvas, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{
+            label: "Transazioni",
+            data: values,
+            backgroundColor: ["#0077cc", "#00cc88", "#ffaa00", "#cc0044", "#888888"]
+          }]
+        }
+      });
+    }
+
+    loadUser();
+  </script>
+</body>
+</html>
+
