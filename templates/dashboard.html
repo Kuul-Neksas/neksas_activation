@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Neksəs</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -81,6 +82,10 @@
       color: #777;
       font-style: italic;
     }
+    #pspChart {
+      max-width: 400px;
+      margin: 20px auto;
+    }
   </style>
 </head>
 <body>
@@ -106,6 +111,14 @@
       <h2>PSP Attivati</h2>
       <div id="psp-list">
         <p class="muted">Caricamento PSP...</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Transazioni Mensili per PSP</h2>
+      <div id="chart-container">
+        <p class="muted">Caricamento grafico...</p>
+        <canvas id="pspChart" width="400" height="400" style="display:none;"></canvas>
       </div>
     </div>
 
@@ -150,6 +163,7 @@
         : "-";
 
       loadPSPs(user.id);
+      loadTransactionChart(user.id);
     }
 
     async function loadPSPs(userId) {
@@ -180,7 +194,51 @@
       });
     }
 
-    loadUser();
-  </script>
-</body>
-</html>
+    async function loadTransactionChart(userId) {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("psp_id, created_at")
+        .eq("user_id", userId)
+        .gte("created_at", startOfMonth.toISOString());
+
+      const chartContainer = document.getElementById("chart-container");
+      const canvas = document.getElementById("pspChart");
+
+      if (error || !data || data.length === 0) {
+        chartContainer.innerHTML = "<p class='muted'>Nessuna transazione per questo mese.</p>";
+        return;
+      }
+
+      const counts = {};
+      for (const tx of data) {
+        counts[tx.psp_id] = (counts[tx.psp_id] || 0) + 1;
+      }
+
+      const pspIds = Object.keys(counts);
+      const { data: pspData } = await supabase
+        .from("psp_conditions")
+        .select("id, psp_name")
+        .in("id", pspIds);
+
+      const labels = pspData.map(psp => psp.psp_name);
+      const values = pspData.map(psp => counts[psp.id]);
+
+      canvas.style.display = "block";
+
+      new Chart(canvas.getContext("2d"), {
+        type: "pie",
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ["#0077cc", "#00cc88", "#ffcc00", "#ff4d4d", "#8888ff"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend
