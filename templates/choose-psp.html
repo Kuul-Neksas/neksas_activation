@@ -276,118 +276,124 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const sbClient = supabase.createClient(
-      "{{ supabase_url }}",
-      "{{ supabase_anon_key }}"
-    );
+<script>
+  const sbClient = supabase.createClient(
+    "{{ supabase_url }}",
+    "{{ supabase_anon_key }}"
+  );
 
-    function showError(msg) {
-      console.error("❌", msg);
-      const errorDiv = document.getElementById("error-message");
-      errorDiv.textContent = msg;
-      errorDiv.style.display = "block";
+  function showError(msg) {
+    console.error("❌", msg);
+    const errorDiv = document.getElementById("error-message");
+    errorDiv.textContent = msg;
+    errorDiv.style.display = "block";
+  }
+
+  function showSuccess(msg) {
+    console.log("✅", msg);
+    const successDiv = document.getElementById("success-message");
+    successDiv.textContent = msg;
+    successDiv.style.display = "block";
+  }
+
+  async function handlePSPSelection(event) {
+    event.preventDefault();
+    console.log("🚀 Inizio handlePSPSelection");
+
+    const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+    const nome = document.querySelector('input[name="nome"]').value.trim();
+    const cognome = document.querySelector('input[name="cognome"]').value.trim();
+    const business = document.querySelector('input[name="business"]').value.trim();
+    const iban = document.querySelector('input[name="iban"]').value.trim();
+    const email = new URLSearchParams(window.location.search).get('email');
+
+    console.log("📩 Email trovata nell'URL:", email);
+    console.log("📝 Dati raccolti:", { nome, cognome, business, iban, selectedPSPs });
+
+    if (!email) {
+      showError("Email non trovata nell'URL.");
+      return;
     }
 
-    function showSuccess(msg) {
-      console.log("✅", msg);
-      const successDiv = document.getElementById("success-message");
-      successDiv.textContent = msg;
-      successDiv.style.display = "block";
-    }
-
-    async function handlePSPSelection(event) {
-      event.preventDefault();
-      console.log("🚀 Inizio handlePSPSelection");
-
-      const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
-      const nome = document.querySelector('input[name="nome"]').value.trim();
-      const cognome = document.querySelector('input[name="cognome"]').value.trim();
-      const business = document.querySelector('input[name="business"]').value.trim();
-      const iban = document.querySelector('input[name="iban"]').value.trim();
-      const email = new URLSearchParams(window.location.search).get('email');
-
-      console.log("📩 Email trovata nell'URL:", email);
-      console.log("📝 Dati raccolti:", { nome, cognome, business, iban, selectedPSPs });
-
-      if (!email) {
-        showError("Email non trovata nell'URL.");
+    try {
+      // 1) Recupera ID utente da Supabase Auth
+      const { data: authData, error: authError } = await sbClient.auth.getUser();
+      if (authError || !authData?.user?.id) {
+        showError("Utente non autenticato.");
         return;
       }
 
-      try {
-        // 1) Recupera ID utente
-        console.log("🔎 Query users con email:", email);
-        const { data: user, error: userError } = await sbClient
-          .from("users")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle();
+      const authId = authData.user.id;
+      console.log("🔐 ID utente autenticato:", authId);
 
-        console.log("📥 Risultato query users:", { user, userError });
+      // 2) Aggiorna tabella users con ID allineato
+      const { error: userUpsertError } = await sbClient.from("users").upsert([{
+        id: authId,
+        email,
+        name: nome,
+        surname: cognome,
+        business_name: business,
+        is_active: true
+      }], { onConflict: "email" });
 
-        if (userError || !user) {
-          showError("Impossibile recuperare l'utente.");
-          return;
-        }
-
-        const userId = user.id;
-        console.log("👤 UserID trovato:", userId);
-
-        // 2) Aggiorna profilo
-        console.log("📤 Upsert profilo:", { id: userId, name: nome, surname: cognome, business_name: business });
-        const { error: profileError } = await sbClient.from("profiles").upsert([{
-          id: userId,
-          name: nome,
-          surname: cognome,
-          business_name: business
-        }]);
-
-        console.log("📥 Risultato upsert profilo:", profileError);
-
-        if (profileError) {
-          showError("Errore durante il salvataggio del profilo.");
-          return;
-        }
-
-        // 3) Inserisci PSP selezionati
-        const userPspRecords = selectedPSPs.map(psp => ({
-          user_id: userId,
-          psp_name: psp,
-          accepted_terms: true
-        }));
-        console.log("📤 Insert user_psp:", userPspRecords);
-
-        if (userPspRecords.length > 0) {
-          const { error: insertError } = await sbClient
-            .from("user_psp")
-            .insert(userPspRecords);
-
-          console.log("📥 Risultato insert user_psp:", insertError);
-
-          if (insertError) {
-            showError("Errore nel salvataggio delle scelte PSP.");
-            return;
-          }
-        } else {
-          console.warn("⚠️ Nessun PSP selezionato");
-        }
-
-        // 4) Invio a PSP esterni (solo log)
-        for (const psp of selectedPSPs) {
-          console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
-        }
-
-        // 5) Redirect
-        showSuccess("Iscrizione completata con successo!");
-        setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
-
-      } catch (error) {
-        console.error("💥 Errore generale:", error);
-        showError("Errore durante l'invio dei dati. Riprova.");
+      if (userUpsertError) {
+        console.error("⚠️ Errore upsert in users:", userUpsertError.message);
+        showError("Errore nel salvataggio utente.");
+        return;
       }
+
+      // 3) Upsert profilo
+      console.log("📤 Upsert profilo:", { id: authId, name: nome, surname: cognome, business_name: business });
+      const { error: profileError } = await sbClient.from("profiles").upsert([{
+        id: authId,
+        name: nome,
+        surname: cognome,
+        business_name: business
+      }]);
+
+      if (profileError) {
+        console.error("📥 Errore upsert profilo:", profileError.message);
+        showError("Errore durante il salvataggio del profilo.");
+        return;
+      }
+
+      // 4) Inserisci PSP selezionati
+      const userPspRecords = selectedPSPs.map(psp => ({
+        user_id: authId,
+        psp_name: psp,
+        accepted_terms: true
+      }));
+      console.log("📤 Insert user_psp:", userPspRecords);
+
+      if (userPspRecords.length > 0) {
+        const { error: insertError } = await sbClient
+          .from("user_psp")
+          .insert(userPspRecords);
+
+        if (insertError) {
+          console.error("📥 Errore insert user_psp:", insertError.message);
+          showError("Errore nel salvataggio delle scelte PSP.");
+          return;
+        }
+      } else {
+        console.warn("⚠️ Nessun PSP selezionato");
+      }
+
+      // 5) Simulazione invio a PSP esterni
+      for (const psp of selectedPSPs) {
+        console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
+      }
+
+      // 6) Redirect finale
+      showSuccess("Iscrizione completata con successo!");
+      setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
+
+    } catch (error) {
+      console.error("💥 Errore generale:", error);
+      showError("Errore durante l'invio dei dati. Riprova.");
     }
-  </script>
+  }
+</script>
 </body>
 </html>
 
