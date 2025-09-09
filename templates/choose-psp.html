@@ -327,14 +327,14 @@
       console.log("🔐 ID utente autenticato:", authId);
 
       // 2) Aggiorna tabella users con ID allineato
-      const { error: userUpsertError } = await sbClient.from("users").upsert([{
-        id: authId,
-        email,
+      const { error: userUpsertError } = await sbClient.from("users")
+       .update({
         name: nome,
         surname: cognome,
         business_name: business,
         is_active: true
-      }], { onConflict: "email" });
+     })
+       .eq("email", email);
 
       if (userUpsertError) {
         console.error("⚠️ Errore upsert in users:", userUpsertError.message);
