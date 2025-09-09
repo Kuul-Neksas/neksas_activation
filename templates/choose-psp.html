@@ -357,27 +357,29 @@
         return;
       }
 
-      // 4) Inserisci PSP selezionati
-      const userPspRecords = selectedPSPs.map(psp => ({
-        user_id: authId,
-        psp_name: psp,
-        accepted_terms: true
-      }));
-      console.log("📤 Insert user_psp:", userPspRecords);
+      // ✅ Inserisci PSP selezionati usando users.id
+const userPspRecords = selectedPSPs.map(psp => ({
+  user_id: userId, // ⚠️ NON usare authId qui
+  psp_name: psp,
+  accepted_terms: true
+}));
 
-      if (userPspRecords.length > 0) {
-        const { error: insertError } = await sbClient
-          .from("user_psp")
-          .insert(userPspRecords);
+console.log("📤 Insert user_psp:", userPspRecords);
 
-        if (insertError) {
-          console.error("📥 Errore insert user_psp:", insertError.message);
-          showError("Errore nel salvataggio delle scelte PSP.");
-          return;
-        }
-      } else {
-        console.warn("⚠️ Nessun PSP selezionato");
-      }
+if (userPspRecords.length > 0) {
+  const { error: insertError } = await sbClient
+    .from("user_psp")
+    .insert(userPspRecords);
+
+  if (insertError) {
+    console.error("📥 Errore insert user_psp:", insertError.message);
+    showError("Errore nel salvataggio delle scelte PSP.");
+    return;
+  }
+} else {
+  console.warn("⚠️ Nessun PSP selezionato");
+}
+
 
       // 5) Simulazione invio a PSP esterni
       for (const psp of selectedPSPs) {
