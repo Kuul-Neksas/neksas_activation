@@ -36,7 +36,11 @@ def auth_redirect():
 
 @app.route('/choose-psp')
 def choose_psp():
-    return render_template('choose-psp.html')
+    return render_template(
+        'choose-psp.html',
+        supabase_url=app.config['SUPABASE_URL'],
+        supabase_anon_key=app.config['SUPABASE_ANON_KEY']
+    )
 
 @app.route('/register-psp')
 def register_psp():
