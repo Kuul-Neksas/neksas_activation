@@ -326,23 +326,38 @@
       const authId = authData.user.id;
       console.log("🔐 ID utente autenticato:", authId);
 
-      // 2) Aggiorna tabella users con ID allineato
-      const { error: userUpsertError } = await sbClient.from("users")
-       .update({
-        name: nome,
-        surname: cognome,
-        business_name: business,
-        is_active: true
-     })
-       .eq("email", email);
+      // 2) Recupera ID utente dalla tabella users
+      const { data: userRecord, error: userError } = await sbClient
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
 
-      if (userUpsertError) {
-        console.error("⚠️ Errore upsert in users:", userUpsertError.message);
+      if (userError || !userRecord) {
+        showError("Utente non trovato nella tabella users.");
+        return;
+      }
+
+      const userId = userRecord.id;
+      console.log("🆔 ID utente da tabella users:", userId);
+
+      // 3) Aggiorna dati utente
+      const { error: userUpdateError } = await sbClient.from("users")
+        .update({
+          name: nome,
+          surname: cognome,
+          business_name: business,
+          is_active: true
+        })
+        .eq("id", userId);
+
+      if (userUpdateError) {
+        console.error("⚠️ Errore update in users:", userUpdateError.message);
         showError("Errore nel salvataggio utente.");
         return;
       }
 
-      // 3) Upsert profilo
+      // 4) Upsert profilo (usa authId)
       console.log("📤 Upsert profilo:", { id: authId, name: nome, surname: cognome, business_name: business });
       const { error: profileError } = await sbClient.from("profiles").upsert([{
         id: authId,
@@ -357,36 +372,35 @@
         return;
       }
 
-      // ✅ Inserisci PSP selezionati usando users.id
-const userPspRecords = selectedPSPs.map(psp => ({
-  user_id: userId, // ⚠️ NON usare authId qui
-  psp_name: psp,
-  accepted_terms: true
-}));
+      // 5) Inserisci PSP selezionati (usa userId)
+      const userPspRecords = selectedPSPs.map(psp => ({
+        user_id: userId,
+        psp_name: psp,
+        accepted_terms: true
+      }));
 
-console.log("📤 Insert user_psp:", userPspRecords);
+      console.log("📤 Insert user_psp:", userPspRecords);
 
-if (userPspRecords.length > 0) {
-  const { error: insertError } = await sbClient
-    .from("user_psp")
-    .insert(userPspRecords);
+      if (userPspRecords.length > 0) {
+        const { error: insertError } = await sbClient
+          .from("user_psp")
+          .insert(userPspRecords);
 
-  if (insertError) {
-    console.error("📥 Errore insert user_psp:", insertError.message);
-    showError("Errore nel salvataggio delle scelte PSP.");
-    return;
-  }
-} else {
-  console.warn("⚠️ Nessun PSP selezionato");
-}
+        if (insertError) {
+          console.error("📥 Errore insert user_psp:", insertError.message);
+          showError("Errore nel salvataggio delle scelte PSP.");
+          return;
+        }
+      } else {
+        console.warn("⚠️ Nessun PSP selezionato");
+      }
 
-
-      // 5) Simulazione invio a PSP esterni
+      // 6) Simulazione invio a PSP esterni
       for (const psp of selectedPSPs) {
         console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
       }
 
-      // 6) Redirect finale
+      // 7) Redirect finale
       showSuccess("Iscrizione completata con successo!");
       setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
 
