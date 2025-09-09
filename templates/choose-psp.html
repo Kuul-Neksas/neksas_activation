@@ -2,235 +2,394 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Completa l'iscrizione</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Completa l’iscrizione - Neksəs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
       margin: 0;
       padding: 0;
-      background: #f4f6f9;
+      color: #333;
     }
+
     .container {
-      max-width: 800px;
+      max-width: 700px;
       margin: 40px auto;
+      padding: 20px;
       background: #fff;
-      padding: 30px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h1 {
+
+    .header {
       text-align: center;
       margin-bottom: 20px;
     }
-    .logo {
+
+    .header img {
       display: block;
-      margin: 0 auto 20px;
-      width: 180px;
+      margin: 0 auto 10px;
+      height: 180px; /* logo grande */
     }
-    .form-group {
-      margin-bottom: 15px;
+
+    .header h1 {
+      font-size: 1.8em;
+      color: #0077cc;
+      margin: 0;
     }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-bottom: 5px;
+
+    .psp-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
-    input[type="text"] {
-      width: 100%;
+
+    .user-info input {
       padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1em;
+      width: 100%;
+      margin-bottom: 10px;
     }
+
+    .subtitle {
+      font-size: 1.2em;
+      color: #555;
+      text-align: center;
+      margin: 20px 0 10px;
+    }
+
     .psp-list {
-      margin: 30px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
     }
+
     .psp-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
-      border-bottom: 1px solid #eee;
+      background-color: #f0f4f8;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.05);
     }
+
+    .psp-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
     .psp-item img {
-      height: 32px;
-      margin-right: 10px;
+      width: 48px;
+      height: auto;
     }
-    .footer {
-      margin-top: 30px;
-      font-size: 14px;
+
+    .psp-info label {
+      font-weight: bold;
+    }
+
+    .psp-info a {
+      font-size: 0.9em;
+      color: #0077cc;
+      text-decoration: underline;
+      margin-left: 15px;
+    }
+
+    .terms {
+      font-size: 0.9em;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .terms a {
+      color: #0077cc;
+      text-decoration: underline;
+    }
+
+    button[type="submit"] {
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #005fa3;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
       text-align: center;
     }
-    button {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      background: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
+
+    .success {
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <img src="/static/logo.png" alt="Logo Neksas" class="logo">
-    <h1>Completa l'iscrizione al servizio</h1>
+    <!-- Header -->
+    <div class="header">
+      <h1>Completa l’iscrizione al servizio</h1>
+      <img src="/static/logo-neksas.png" alt="Logo Neksəs" />
+    </div>
 
-    <form id="pspForm">
-      <div class="form-group">
-        <label for="name">Nome</label>
-        <input type="text" id="name" required />
-      </div>
-      <div class="form-group">
-        <label for="surname">Cognome</label>
-        <input type="text" id="surname" required />
-      </div>
-      <div class="form-group">
-        <label for="business">Nome Attività</label>
-        <input type="text" id="business" required />
-      </div>
-      <div class="form-group">
-        <label for="iban">IBAN</label>
-        <input type="text" id="iban" placeholder="IBAN (solo per passaggio ai PSP)" />
+    <!-- Form -->
+    <form class="psp-form" onsubmit="handlePSPSelection(event)">
+      <div class="user-info">
+        <input type="text" name="nome" placeholder="Nome" required />
+        <input type="text" name="cognome" placeholder="Cognome" required />
+        <input type="text" name="business" placeholder="Nome attività" required />
+        <input type="text" name="iban" placeholder="IBAN" required />
       </div>
 
-      <h2 style="margin-top:30px;">Scegli i PSP da attivare</h2>
+      <h2 class="subtitle">
+        Scegli i PSP da attivare 
+        <span title="I PSP (Payment Service Provider) sono fornitori come Stripe, PayPal, Nexi... che permettono di accettare pagamenti.">ℹ️</span>
+      </h2>
+
       <div class="psp-list">
+        <!-- PSP items -->
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Stripe"> <img src="/static/stripe.png"> Stripe</label>
-          <a href="/static/stripe-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="stripe" />
+            <img src="/static/stripe.png" alt="Logo Stripe" />
+            <label>Stripe</label>
+          </div>
+          <a href="/static/stripe.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="SumUp"> <img src="/static/sumup.png"> SumUp</label>
-          <a href="/static/sumup-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="sumup" />
+            <img src="/static/sumup.png" alt="Logo SumUp" />
+            <label>SumUp</label>
+          </div>
+          <a href="/static/sumup.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="PayPal"> <img src="/static/paypal.png"> PayPal</label>
-          <a href="/static/paypal-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="paypal" />
+            <img src="/static/paypal.png" alt="Logo PayPal" />
+            <label>PayPal</label>
+          </div>
+          <a href="/static/paypal.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Nexi"> <img src="/static/nexi.png"> Nexi</label>
-          <a href="/static/nexi-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="nexi" />
+            <img src="/static/nexi.png" alt="Logo Nexi" />
+            <label>Nexi</label>
+          </div>
+          <a href="/static/nexi.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Adyen"> <img src="/static/adyen.png"> Adyen</label>
-          <a href="/static/adyen-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="adyen" />
+            <img src="/static/adyen.png" alt="Logo Adyen" />
+            <label>Adyen</label>
+          </div>
+          <a href="/static/adyen.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Binance"> <img src="/static/binance.png"> Binance</label>
-          <a href="/static/binance-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="binance" />
+            <img src="/static/binance.png" alt="Logo Binance" />
+            <label>Binance (Crypto)</label>
+          </div>
+          <a href="/static/binance.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Satispay"> <img src="/static/satispay.png"> Satispay</label>
-          <a href="/static/satispay-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="satispay" />
+            <img src="/static/satispay.png" alt="Logo Satispay" />
+            <label>Satispay</label>
+          </div>
+          <a href="/static/satispay.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="TicketRestaurant"> <img src="/static/ticket.png"> Ticket Restaurant</label>
-          <a href="/static/ticket-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="edenred" />
+            <img src="/static/edenred.png" alt="Logo Edenred" />
+            <label>Ticket Restaurant</label>
+          </div>
+          <a href="/static/edenred.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Pellegrini"> <img src="/static/pellegrini.png"> Pellegrini</label>
-          <a href="/static/pellegrini-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="pellegrini" />
+            <img src="/static/pellegrini.png" alt="Logo Pellegrini" />
+            <label>Pellegrini</label>
+          </div>
+          <a href="/static/pellegrini.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="Sodexo"> <img src="/static/sodexo.png"> Sodexo</label>
-          <a href="/static/sodexo-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="pluxee" />
+            <img src="/static/pluxee.png" alt="Logo Pluxee" />
+            <label>Sodexo / Pluxee</label>
+          </div>
+          <a href="/static/pluxee.pdf" target="_blank">Condizioni</a>
         </div>
+
         <div class="psp-item">
-          <label><input type="checkbox" name="psp" value="BuoniRegalo"> <img src="/static/gift.png"> Buoni Regalo</label>
-          <a href="/static/gift-conditions.pdf" target="_blank">Condizioni</a>
+          <div class="psp-left">
+            <input type="checkbox" name="psp" value="buoniregalo" />
+            <img src="/static/buoniregalo.png" alt="Logo Buoni Regalo" />
+            <label>Buoni Regalo</label>
+          </div>
+          <a href="/static/buoniregalo.pdf" target="_blank">Condizioni</a>
         </div>
       </div>
+
+      <p class="terms">
+        Procedendo si accettano le nostre <a href="/static/privacy.pdf" target="_blank">condizioni generali</a>
+      </p>
 
       <button type="submit">Continua</button>
+      <div id="error-message" class="error" style="display:none;"></div>
+      <div id="success-message" class="success" style="display:none;"></div>
     </form>
-
-    <div class="footer">
-      Procedendo si accettano le nostre <a href="/static/privacy.pdf" target="_blank">Condizioni e Privacy</a>
-    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const sbClient = supabase.createClient("{{ supabase_url }}", "{{ supabase_key }}");
-    console.log("✅ Supabase client inizializzato");
+    const sbClient = supabase.createClient(
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
+    );
 
-    document.getElementById("pspForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    function showError(msg) {
+      console.error("❌", msg);
+      const errorDiv = document.getElementById("error-message");
+      errorDiv.textContent = msg;
+      errorDiv.style.display = "block";
+    }
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const email = urlParams.get("email");
-      console.log("📩 Email dall’URL:", email);
+    function showSuccess(msg) {
+      console.log("✅", msg);
+      const successDiv = document.getElementById("success-message");
+      successDiv.textContent = msg;
+      successDiv.style.display = "block";
+    }
+
+    async function handlePSPSelection(event) {
+      event.preventDefault();
+      console.log("🚀 Inizio handlePSPSelection");
+
+      const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+      const nome = document.querySelector('input[name="nome"]').value.trim();
+      const cognome = document.querySelector('input[name="cognome"]').value.trim();
+      const business = document.querySelector('input[name="business"]').value.trim();
+      const iban = document.querySelector('input[name="iban"]').value.trim();
+      const email = new URLSearchParams(window.location.search).get('email');
+
+      console.log("📩 Email trovata nell'URL:", email);
+      console.log("📝 Dati raccolti:", { nome, cognome, business, iban, selectedPSPs });
 
       if (!email) {
-        alert("Email non trovata nell'URL.");
+        showError("Email non trovata nell'URL.");
         return;
       }
 
       try {
-        // Recupero utente
+        // 1) Recupera ID utente
+        console.log("🔎 Query users con email:", email);
         const { data: user, error: userError } = await sbClient
           .from("users")
           .select("id")
           .eq("email", email)
-          .single();
+          .maybeSingle();
+
+        console.log("📥 Risultato query users:", { user, userError });
 
         if (userError || !user) {
-          console.error("❌ Errore query utente:", userError);
-          alert("Errore nel recupero utente.");
+          showError("Impossibile recuperare l'utente.");
           return;
         }
-        console.log("✅ Utente trovato:", user);
 
-        // Inserimento/aggiornamento profilo
-        const profileData = {
-          id: user.id,
-          name: document.getElementById("name").value,
-          surname: document.getElementById("surname").value,
-          business_name: document.getElementById("business").value
-        };
-        console.log("📦 Dati profilo:", profileData);
+        const userId = user.id;
+        console.log("👤 UserID trovato:", userId);
 
-        const { error: profileError } = await sbClient.from("profiles").upsert(profileData);
+        // 2) Aggiorna profilo
+        console.log("📤 Upsert profilo:", { id: userId, name: nome, surname: cognome, business_name: business });
+        const { error: profileError } = await sbClient.from("profiles").upsert([{
+          id: userId,
+          name: nome,
+          surname: cognome,
+          business_name: business
+        }]);
+
+        console.log("📥 Risultato upsert profilo:", profileError);
+
         if (profileError) {
-          console.error("❌ Errore insert profilo:", profileError);
-        } else {
-          console.log("✅ Profilo aggiornato");
+          showError("Errore durante il salvataggio del profilo.");
+          return;
         }
 
-        // PSP selezionati
-        const selectedPSPs = Array.from(document.querySelectorAll("input[name='psp']:checked"))
-          .map((c) => c.value);
-        console.log("📦 PSP selezionati:", selectedPSPs);
+        // 3) Inserisci PSP selezionati
+        const userPspRecords = selectedPSPs.map(psp => ({
+          user_id: userId,
+          psp_name: psp,
+          accepted_terms: true
+        }));
+        console.log("📤 Insert user_psp:", userPspRecords);
 
-        for (let psp of selectedPSPs) {
-          const { error: insertError } = await sbClient.from("user_psp").insert({
-            user_id: user.id,
-            psp_name: psp,
-            accepted_terms: true
-          });
+        if (userPspRecords.length > 0) {
+          const { error: insertError } = await sbClient
+            .from("user_psp")
+            .insert(userPspRecords);
+
+          console.log("📥 Risultato insert user_psp:", insertError);
 
           if (insertError) {
-            console.error("❌ Errore insert PSP:", insertError);
-          } else {
-            console.log("✅ Inserito PSP:", psp);
+            showError("Errore nel salvataggio delle scelte PSP.");
+            return;
           }
+        } else {
+          console.warn("⚠️ Nessun PSP selezionato");
         }
 
-        alert("Dati salvati con successo!");
-        window.location.href = `/dashboard?email=${encodeURIComponent(email)}`;
-      } catch (err) {
-        console.error("⚠️ Errore generale:", err);
-        alert("Errore durante l'invio dei dati. Riprova.");
+        // 4) Invio a PSP esterni (solo log)
+        for (const psp of selectedPSPs) {
+          console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
+        }
+
+        // 5) Redirect
+        showSuccess("Iscrizione completata con successo!");
+        setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
+
+      } catch (error) {
+        console.error("💥 Errore generale:", error);
+        showError("Errore durante l'invio dei dati. Riprova.");
       }
-    });
+    }
   </script>
 </body>
 </html>
+
 
 
