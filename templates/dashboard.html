@@ -7,7 +7,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
   <style>
-    /* Stili identici ai tuoi */
     body {
       font-family: 'Poppins', sans-serif;
       background-color: #f4f7fa;
@@ -199,8 +198,8 @@
 
     async function loadPSPs(userId) {
       const { data, error } = await supabase
-        .from("user_psp")
-        .select("psp_name")
+        .from("user_psp_conditions")
+        .select("circuit_name, fixed_fee, percentage_fee, currency")
         .eq("user_id", userId);
 
       const container = document.getElementById("psp-list");
@@ -217,38 +216,32 @@
       }
 
       for (const entry of data) {
-        const { data: pspDetails } = await supabase
-          .from("psp_conditions")
-          .select("*")
-          .eq("psp_name", entry.psp_name)
-          .maybeSingle();
-
         const card = document.createElement("div");
         card.className = "psp-card";
         card.innerHTML = `
-          <p><strong>PSP:</strong> ${entry.psp_name}</p>
-          <p>💶 <strong>Fee fissa:</strong> ${pspDetails?.fixed_fee ?? "-"} ${pspDetails?.currency ?? ""}</p>
-          <p>📊 <strong>Fee %:</strong> ${pspDetails?.percentage_fee ?? "-"}%</p>
+          <p><strong>PSP:</strong> ${entry.circuit_name}</p>
+          <p>💶 <strong>Fee fissa:</strong> ${entry.fixed_fee ?? "-"} ${entry.currency ?? ""}</p>
+          <p>📊 <strong>Fee %:</strong> ${entry.percentage_fee ?? "-"}%</p>
         `;
         container.appendChild(card);
       }
     }
 
-    a    async function loadTransactionChart(userId) {
+    async function loadTransactionChart(userId) {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
       const { data, error } = await supabase
         .from("transactions")
-        .select("psp_id, created_at")
+        .select("psp_id")
         .eq("user_id", userId)
         .gte("created_at", startOfMonth.toISOString());
 
       const chartContainer = document.getElementById("chart-container");
       const canvas = document.getElementById("pspChart");
 
-      if (error) {
+            if (error) {
         chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
         return;
       }
