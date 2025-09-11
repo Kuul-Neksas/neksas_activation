@@ -109,6 +109,15 @@
       margin-top: 20px;
       text-align: center;
     }
+    .share-icons {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 1.5em;
+    }
+    .share-icons span {
+      margin: 0 10px;
+      cursor: pointer;
+    }
     .disclaimer {
       margin-top: 30px;
       font-size: 0.9em;
@@ -118,6 +127,19 @@
     .highlight {
       font-weight: bold;
       color: #cc0000;
+    }
+    .inline-button {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 6px 10px;
+      font-size: 0.8em;
+      background-color: #ccc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .inline-button:hover {
+      background-color: #aaa;
     }
   </style>
 </head>
@@ -152,9 +174,15 @@
 
       <label>Importo (€)</label>
       <input type="number" id="amount" min="0.01" step="0.01" />
+      <button class="inline-button" onclick="clearFields()">Pulisci</button>
 
       <div id="psp-list"></div>
       <div id="qr-container"></div>
+      <div class="share-icons" id="share-icons" style="display:none;">
+        <span onclick="shareViaEmail()">📧</span>
+        <span onclick="shareViaWhatsApp()">📱</span>
+        <span onclick="copyLink()">🔗</span>
+      </div>
 
       <div class="disclaimer">
         Proseguendo accetti le nostre condizioni. <br />
@@ -167,6 +195,7 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
+    let currentPaymentLink = "";
 
     document.getElementById("toggle-eye").addEventListener("click", () => {
       const input = document.getElementById("login-password");
@@ -194,6 +223,7 @@
 
       document.getElementById("email").value = user.email;
       document.getElementById("business").value = user.business_name || "-";
+      clearFields();
 
       const { data: pspList } = await supabase
         .from("user_psp_conditions")
@@ -205,9 +235,17 @@
       );
     };
 
+    function clearFields() {
+      document.getElementById("description").value = "";
+      document.getElementById("amount").value = "";
+      document.getElementById("psp-list").innerHTML = "";
+      document.getElementById("qr-container").innerHTML = "";
+      document.getElementById("share-icons").style.display = "none";
+    }
+
     function renderPSPCards(pspList, userId) {
       const amount = parseFloat(document.getElementById("amount").value);
-      const description = document.getElementById("description").value.trim();
+            const description = document.getElementById("description").value.trim();
       const container = document.getElementById("psp-list");
       container.innerHTML = "";
 
@@ -239,9 +277,13 @@
 
     async function handlePayment(psp, amount, description, userId) {
       const link = generatePaymentLink(psp.circuit_name, amount, description);
-            const qrContainer = document.getElementById("qr-container");
-      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">Vai al pagamento</a></p>`;
+      currentPaymentLink = link;
+
+      const qrContainer = document.getElementById("qr-container");
+      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">${link}</a></p>`;
       QRCode.toCanvas(document.getElementById("qr"), link);
+
+      document.getElementById("share-icons").style.display = "block";
 
       await supabase.from("transactions").insert([{
         user_id: userId,
@@ -262,9 +304,27 @@
         return `https://neksas-activation.onrender.com/pay?psp=${pspName}&amount=${amount}&desc=${encodedDesc}`;
       }
     }
+
+    window.shareViaEmail = function () {
+      const subject = encodeURIComponent("Pagamento Neksəs");
+      const body = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
+      window.open(`mailto:?subject=${subject}&body=${body}`);
+    };
+
+    window.shareViaWhatsApp = function () {
+      const text = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
+      window.open(`https://wa.me/?text=${text}`);
+    };
+
+    window.copyLink = function () {
+      navigator.clipboard.writeText(currentPaymentLink)
+        .then(() => alert("Link copiato negli appunti."))
+        .catch(() => alert("Errore nella copia del link."));
+    };
   </script>
 </body>
 </html>
+
 
 
 
