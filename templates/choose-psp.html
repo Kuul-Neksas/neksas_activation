@@ -290,11 +290,31 @@
   }
 
   function showSuccess(msg) {
-    console.log("✅", msg);
-    const successDiv = document.getElementById("success-message");
-    successDiv.textContent = msg;
-    successDiv.style.display = "block";
+  console.log("✅", msg);
+  const successDiv = document.getElementById("success-message");
+  successDiv.textContent = msg;
+  successDiv.style.display = "block";
+
+  const buttonsDiv = document.getElementById("action-buttons");
+  buttonsDiv.style.display = "block";
+}
+
+<div id="action-buttons" style="margin-top: 20px; display: none;">
+  <button onclick="handleLogout()">🔒 Logout</button>
+  <button onclick="goToDashboard()">📊 Vai alla tua Dashboard</button>
+</div>
+function handleLogout() {
+  window.location.href = "/activate.html";
+}
+
+function goToDashboard() {
+  const email = new URLSearchParams(window.location.search).get('email');
+  if (email) {
+    window.location.href = `/dashboard.html?email=${encodeURIComponent(email)}`;
+  } else {
+    showError("Email non trovata per il redirect.");
   }
+}
 
   async function handlePSPSelection(event) {
     event.preventDefault();
