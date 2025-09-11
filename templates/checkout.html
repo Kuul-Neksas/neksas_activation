@@ -82,13 +82,26 @@
     .psp-card {
       border: 1px solid #0077cc;
       border-radius: 8px;
-      padding: 10px;
-      margin-top: 15px;
+      padding: 8px;
+      margin-top: 10px;
       background-color: #eef6ff;
+      font-size: 0.9em;
+    }
+    .psp-card button {
+      margin-top: 8px;
+      font-size: 0.9em;
     }
     #qr-container {
       margin-top: 20px;
       text-align: center;
+    }
+    .share-box {
+      margin-top: 10px;
+      text-align: center;
+    }
+    .share-box input {
+      margin-top: 5px;
+      font-size: 0.9em;
     }
     .disclaimer {
       margin-top: 30px;
@@ -122,12 +135,6 @@
     </div>
 
     <div id="checkout-section" style="display:none;">
-      <label>Email</label>
-      <input type="text" id="email" readonly />
-
-      <label>Attività / Azienda</label>
-      <input type="text" id="business" readonly />
-
       <label>Descrizione (fattura, merce, ecc.)</label>
       <input type="text" id="description" />
 
@@ -136,6 +143,14 @@
 
       <div id="psp-list"></div>
       <div id="qr-container"></div>
+      <div id="share-box" class="share-box" style="display:none;">
+        <label>Condividi pagamento</label>
+        <input type="text" id="share-email" placeholder="Email destinatario" />
+        <input type="text" id="share-whatsapp" placeholder="Numero WhatsApp" />
+        <button onclick="shareViaEmail()">📧 Invia via Email</button>
+        <button onclick="shareViaWhatsApp()">📱 Invia via WhatsApp</button>
+        <button onclick="copyLink()">🔗 Copia link</button>
+      </div>
 
       <div class="disclaimer">
         Proseguendo accetti le nostre condizioni. <br />
@@ -148,6 +163,9 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
+    let currentUser = null;
+    let currentTransactionId = null;
+    let currentPaymentLink = "";
 
     document.getElementById("toggle-eye").addEventListener("click", () => {
       const input = document.getElementById("login-password");
@@ -170,11 +188,9 @@
         return;
       }
 
+      currentUser = user;
       document.getElementById("login-section").style.display = "none";
       document.getElementById("checkout-section").style.display = "block";
-
-      document.getElementById("email").value = user.email;
-      document.getElementById("business").value = user.business_name || "-";
 
       const { data: pspList } = await supabase
         .from("user_psp_conditions")
@@ -204,10 +220,10 @@
         card.className = "psp-card";
         card.innerHTML = `
           <p><strong>${psp.circuit_name}</strong> ${index === 0 ? "✅ Consigliato" : ""}</p>
-          <p>💶 Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</p>
-          <p>📊 Fee %: ${psp.percentage_fee ?? "-"}%</p>
-          <p>💰 Costo stimato: €${psp.cost.toFixed(2)}</p>
-          <button>Paga con ${psp.circuit_name}</button>
+          <p>Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</p>
+          <p>Fee %: ${psp.percentage_fee ?? "-"}%</p>
+          <p>Costo stimato: €${psp.cost.toFixed(2)}</p>
+          <button>Genera pagamento</button>
         `;
         card.querySelector("button").onclick = () =>
           handlePayment(psp, amount, description, userId);
@@ -217,31 +233,79 @@
 
     async function handlePayment(psp, amount, description, userId) {
       const link = generatePaymentLink(psp.circuit_name, amount, description);
+      currentPaymentLink = link;
+
+            const { data, error } = await supabase
+        .from("transactions")
+        .insert([{
+          user_id: userId,
+          psp_id: psp.psp_id || psp.id,
+          amount,
+          currency: psp.currency,
+          status: "pending",
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error || !data) {
+        alert("Errore nella creazione della transazione.");
+        return;
+      }
+
+      currentTransactionId = data.id;
+
       const qrContainer = document.getElementById("qr-container");
-      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">Vai al pagamento</a></p>`;
+      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">${link}</a></p>`;
       QRCode.toCanvas(document.getElementById("qr"), link);
 
-            await supabase.from("transactions").insert([{
-        user_id: userId,
-        psp_id: psp.psp_id || psp.id,
-        amount,
-        currency: psp.currency,
-        created_at: new Date().toISOString()
-      }]);
+      document.getElementById("share-box").style.display = "block";
+
+      startPollingStatus();
     }
 
     function generatePaymentLink(pspName, amount, description) {
       const encodedDesc = encodeURIComponent(description);
-      if (pspName.toLowerCase() === "stripe") {
-        return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}`;
-      } else if (pspName.toLowerCase() === "paypal") {
-        return `https://www.paypal.com/pay?amount=${amount}&desc=${encodedDesc}`;
-      } else {
-        return `https://neksas-activation.onrender.com/pay?psp=${pspName}&amount=${amount}&desc=${encodedDesc}`;
-      }
+      const encodedAmount = encodeURIComponent(amount);
+      return `https://neksas-activation.onrender.com/pay?psp=${pspName}&amount=${encodedAmount}&desc=${encodedDesc}&tx=${currentTransactionId}`;
     }
+
+    function startPollingStatus() {
+      const interval = setInterval(async () => {
+        const { data } = await supabase
+          .from("transactions")
+          .select("status")
+          .eq("id", currentTransactionId)
+          .maybeSingle();
+
+        if (data?.status === "completed") {
+          clearInterval(interval);
+          document.getElementById("qr-container").innerHTML += `<p style="color:green;font-weight:bold;">✅ Pagamento completato</p>`;
+        }
+      }, 5000);
+    }
+
+    window.shareViaEmail = function () {
+      const email = document.getElementById("share-email").value.trim();
+      if (!email) return alert("Inserisci un'email valida.");
+      const subject = encodeURIComponent("Pagamento Neksəs");
+      const body = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
+      window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+    };
+
+    window.shareViaWhatsApp = function () {
+      const number = document.getElementById("share-whatsapp").value.trim();
+      if (!number) return alert("Inserisci un numero WhatsApp valido.");
+      const text = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
+      window.open(`https://wa.me/${number}?text=${text}`);
+    };
+
+    window.copyLink = function () {
+      navigator.clipboard.writeText(currentPaymentLink)
+        .then(() => alert("Link copiato negli appunti."))
+        .catch(() => alert("Errore nella copia del link."));
+    };
   </script>
 </body>
 </html>
-
 
