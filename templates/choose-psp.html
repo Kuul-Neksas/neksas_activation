@@ -275,7 +275,20 @@
     </form>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Messaggi e bottoni -->
+<div id="success-message" style="margin-top: 20px;"></div>
+
+<div id="error-message" style="margin-top: 20px; color: red; display: none;"></div>
+
+<div id="action-buttons" style="margin-top: 20px; display: none;">
+  <button onclick="handleLogout()">🔒 Logout</button>
+  <button onclick="goToDashboard()">📊 Vai alla tua Dashboard</button>
+</div>
+
+<!-- Script principale -->
 <script>
   const sbClient = supabase.createClient(
     "{{ supabase_url }}",
@@ -290,31 +303,27 @@
   }
 
   function showSuccess(msg) {
-  console.log("✅", msg);
-  const successDiv = document.getElementById("success-message");
-  successDiv.textContent = msg;
-  successDiv.style.display = "block";
+    console.log("✅", msg);
+    const successDiv = document.getElementById("success-message");
+    successDiv.textContent = msg;
+    successDiv.style.display = "block";
 
-  const buttonsDiv = document.getElementById("action-buttons");
-  buttonsDiv.style.display = "block";
-}
-
-<div id="action-buttons" style="margin-top: 20px; display: none;">
-  <button onclick="handleLogout()">🔒 Logout</button>
-  <button onclick="goToDashboard()">📊 Vai alla tua Dashboard</button>
-</div>
-function handleLogout() {
-  window.location.href = "/activate.html";
-}
-
-function goToDashboard() {
-  const email = new URLSearchParams(window.location.search).get('email');
-  if (email) {
-    window.location.href = `/dashboard.html?email=${encodeURIComponent(email)}`;
-  } else {
-    showError("Email non trovata per il redirect.");
+    const buttonsDiv = document.getElementById("action-buttons");
+    buttonsDiv.style.display = "block";
   }
-}
+
+  function handleLogout() {
+    window.location.href = "/activate.html";
+  }
+
+  function goToDashboard() {
+    const email = new URLSearchParams(window.location.search).get('email');
+    if (email) {
+      window.location.href = `/dashboard.html?email=${encodeURIComponent(email)}`;
+    } else {
+      showError("Email non trovata per il redirect.");
+    }
+  }
 
   async function handlePSPSelection(event) {
     event.preventDefault();
@@ -420,9 +429,8 @@ function goToDashboard() {
         console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
       }
 
-      // 7) Redirect finale
+      // 7) Messaggio finale + bottoni
       showSuccess("Iscrizione completata con successo!");
-      setTimeout(() => window.location.href = `/dashboard?email=${encodeURIComponent(email)}`, 2000);
 
     } catch (error) {
       console.error("💥 Errore generale:", error);
@@ -430,6 +438,7 @@ function goToDashboard() {
     }
   }
 </script>
+
 </body>
 </html>
 
