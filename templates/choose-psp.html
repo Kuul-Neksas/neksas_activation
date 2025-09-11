@@ -31,7 +31,7 @@
     .header img {
       display: block;
       margin: 0 auto 10px;
-      height: 180px; /* logo grande */
+      height: 180px;
     }
 
     .header h1 {
@@ -133,11 +133,42 @@
       text-align: center;
     }
 
-    .success {
+    .success-box {
+      margin-top: 20px;
+      text-align: center;
+      display: none;
+    }
+
+    .success-box p {
       color: green;
       font-weight: bold;
-      margin-top: 10px;
-      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .success-box button {
+      margin: 5px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-logout {
+      background-color: #d9534f;
+      color: white;
+    }
+
+    .btn-dashboard {
+      background-color: #5cb85c;
+      color: white;
+    }
+
+    .btn-logout:hover {
+      background-color: #c9302c;
+    }
+
+    .btn-dashboard:hover {
+      background-color: #449d44;
     }
   </style>
 </head>
@@ -160,7 +191,7 @@
 
       <h2 class="subtitle">
         Scegli i PSP da attivare 
-        <span title="I PSP (Payment Service Provider) sono fornitori come Stripe, PayPal, Nexi... che permettono di accettare pagamenti.">ℹ️</span>
+        <span title="I PSP (Payment Service Provider) sono fornitori come Stripe, PayPal, Nexi...">ℹ️</span>
       </h2>
 
       <div class="psp-list">
@@ -173,7 +204,6 @@
           </div>
           <a href="/static/stripe.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="sumup" />
@@ -182,7 +212,6 @@
           </div>
           <a href="/static/sumup.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="paypal" />
@@ -191,7 +220,6 @@
           </div>
           <a href="/static/paypal.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="nexi" />
@@ -200,7 +228,6 @@
           </div>
           <a href="/static/nexi.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="adyen" />
@@ -209,7 +236,6 @@
           </div>
           <a href="/static/adyen.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="binance" />
@@ -218,7 +244,6 @@
           </div>
           <a href="/static/binance.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="satispay" />
@@ -227,7 +252,6 @@
           </div>
           <a href="/static/satispay.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="edenred" />
@@ -236,7 +260,6 @@
           </div>
           <a href="/static/edenred.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="pellegrini" />
@@ -245,7 +268,6 @@
           </div>
           <a href="/static/pellegrini.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="pluxee" />
@@ -254,7 +276,6 @@
           </div>
           <a href="/static/pluxee.pdf" target="_blank">Condizioni</a>
         </div>
-
         <div class="psp-item">
           <div class="psp-left">
             <input type="checkbox" name="psp" value="buoniregalo" />
@@ -270,177 +291,140 @@
       </p>
 
       <button type="submit">Continua</button>
-      <div id="error-message" class="error" style="display:none;"></div>
-      <div id="success-message" class="success" style="display:none;"></div>
+
+      <!-- messaggi e bottoni nello stesso box -->
+      <div id="messages-box" class="success-box">
+        <p id="success-message"></p>
+        <p id="error-message" class="error" style="display:none;"></p>
+        <div id="action-buttons" style="margin-top: 10px;">
+          <button class="btn-logout" onclick="handleLogout()" type="button">🔒 Logout</button>
+          <button class="btn-dashboard" onclick="goToDashboard()" type="button">📊 Vai alla tua Dashboard</button>
+        </div>
+      </div>
     </form>
   </div>
 
   <!-- Supabase SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- Messaggi e bottoni -->
-<div id="success-message" style="margin-top: 20px;"></div>
+  <!-- Script principale -->
+  <script>
+    const sbClient = supabase.createClient(
+      "{{ supabase_url }}",
+      "{{ supabase_anon_key }}"
+    );
 
-<div id="error-message" style="margin-top: 20px; color: red; display: none;"></div>
-
-<div id="action-buttons" style="margin-top: 20px; display: none;">
-  <button onclick="handleLogout()">🔒 Logout</button>
-  <button onclick="goToDashboard()">📊 Vai alla tua Dashboard</button>
-</div>
-
-<!-- Script principale -->
-<script>
-  const sbClient = supabase.createClient(
-    "{{ supabase_url }}",
-    "{{ supabase_anon_key }}"
-  );
-
-  function showError(msg) {
-    console.error("❌", msg);
-    const errorDiv = document.getElementById("error-message");
-    errorDiv.textContent = msg;
-    errorDiv.style.display = "block";
-  }
-
-  function showSuccess(msg) {
-    console.log("✅", msg);
-    const successDiv = document.getElementById("success-message");
-    successDiv.textContent = msg;
-    successDiv.style.display = "block";
-
-    const buttonsDiv = document.getElementById("action-buttons");
-    buttonsDiv.style.display = "block";
-  }
-
-  function handleLogout() {
-    window.location.href = "/activate.html";
-  }
-
-  function goToDashboard() {
-    const email = new URLSearchParams(window.location.search).get('email');
-    if (email) {
-      window.location.href = `/dashboard.html?email=${encodeURIComponent(email)}`;
-    } else {
-      showError("Email non trovata per il redirect.");
-    }
-  }
-
-  async function handlePSPSelection(event) {
-    event.preventDefault();
-    console.log("🚀 Inizio handlePSPSelection");
-
-    const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
-    const nome = document.querySelector('input[name="nome"]').value.trim();
-    const cognome = document.querySelector('input[name="cognome"]').value.trim();
-    const business = document.querySelector('input[name="business"]').value.trim();
-    const iban = document.querySelector('input[name="iban"]').value.trim();
-    const email = new URLSearchParams(window.location.search).get('email');
-
-    console.log("📩 Email trovata nell'URL:", email);
-    console.log("📝 Dati raccolti:", { nome, cognome, business, iban, selectedPSPs });
-
-    if (!email) {
-      showError("Email non trovata nell'URL.");
-      return;
+    function showError(msg) {
+      console.error("❌", msg);
+      const errorDiv = document.getElementById("error-message");
+      errorDiv.textContent = msg;
+      errorDiv.style.display = "block";
+      document.getElementById("messages-box").style.display = "block";
     }
 
-    try {
-      // 1) Recupera ID utente da Supabase Auth
-      const { data: authData, error: authError } = await sbClient.auth.getUser();
-      if (authError || !authData?.user?.id) {
-        showError("Utente non autenticato.");
+    function showSuccess(msg) {
+      console.log("✅", msg);
+      const successDiv = document.getElementById("success-message");
+      successDiv.textContent = msg;
+      document.getElementById("messages-box").style.display = "block";
+    }
+
+    function handleLogout() {
+      window.location.href = "/activate.html";
+    }
+
+    function goToDashboard() {
+      const email = new URLSearchParams(window.location.search).get('email');
+      if (email) {
+        window.location.href = `/dashboard.html?email=${encodeURIComponent(email)}`;
+      } else {
+        showError("Email non trovata per il redirect.");
+      }
+    }
+
+    async function handlePSPSelection(event) {
+      event.preventDefault();
+      console.log("🚀 Inizio handlePSPSelection");
+
+      const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+      const nome = document.querySelector('input[name="nome"]').value.trim();
+      const cognome = document.querySelector('input[name="cognome"]').value.trim();
+      const business = document.querySelector('input[name="business"]').value.trim();
+      const iban = document.querySelector('input[name="iban"]').value.trim();
+      const email = new URLSearchParams(window.location.search).get('email');
+
+      if (!email) {
+        showError("Email non trovata nell'URL.");
         return;
       }
 
-      const authId = authData.user.id;
-      console.log("🔐 ID utente autenticato:", authId);
-
-      // 2) Recupera ID utente dalla tabella users
-      const { data: userRecord, error: userError } = await sbClient
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (userError || !userRecord) {
-        showError("Utente non trovato nella tabella users.");
-        return;
-      }
-
-      const userId = userRecord.id;
-      console.log("🆔 ID utente da tabella users:", userId);
-
-      // 3) Aggiorna dati utente
-      const { error: userUpdateError } = await sbClient.from("users")
-        .update({
-          name: nome,
-          surname: cognome,
-          business_name: business,
-          is_active: true
-        })
-        .eq("id", userId);
-
-      if (userUpdateError) {
-        console.error("⚠️ Errore update in users:", userUpdateError.message);
-        showError("Errore nel salvataggio utente.");
-        return;
-      }
-
-      // 4) Upsert profilo (usa authId)
-      console.log("📤 Upsert profilo:", { id: authId, name: nome, surname: cognome, business_name: business });
-      const { error: profileError } = await sbClient.from("profiles").upsert([{
-        id: authId,
-        name: nome,
-        surname: cognome,
-        business_name: business
-      }]);
-
-      if (profileError) {
-        console.error("📥 Errore upsert profilo:", profileError.message);
-        showError("Errore durante il salvataggio del profilo.");
-        return;
-      }
-
-      // 5) Inserisci PSP selezionati (usa userId)
-      const userPspRecords = selectedPSPs.map(psp => ({
-        user_id: userId,
-        psp_name: psp,
-        accepted_terms: true
-      }));
-
-      console.log("📤 Insert user_psp:", userPspRecords);
-
-      if (userPspRecords.length > 0) {
-        const { error: insertError } = await sbClient
-          .from("user_psp")
-          .insert(userPspRecords);
-
-        if (insertError) {
-          console.error("📥 Errore insert user_psp:", insertError.message);
-          showError("Errore nel salvataggio delle scelte PSP.");
+      try {
+        // 1) Recupera utente da Supabase Auth
+        const { data: authData, error: authError } = await sbClient.auth.getUser();
+        if (authError || !authData?.user?.id) {
+          showError("Utente non autenticato.");
           return;
         }
-      } else {
-        console.warn("⚠️ Nessun PSP selezionato");
+        const authId = authData.user.id;
+
+        // 2) Recupera ID utente da tabella users
+        const { data: userRecord, error: userError } = await sbClient
+          .from("users")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (userError || !userRecord) {
+          showError("Utente non trovato nella tabella users.");
+          return;
+        }
+        const userId = userRecord.id;
+
+        // 3) Aggiorna tabella users
+        await sbClient.from("users")
+          .update({
+            name: nome,
+            surname: cognome,
+            business_name: business,
+            is_active: true
+          })
+          .eq("id", userId);
+
+        // 4) Upsert profilo
+        await sbClient.from("profiles").upsert([{
+          id: authId,
+          name: nome,
+          surname: cognome,
+          business_name: business
+        }]);
+
+        // 5) Ripulisci e inserisci PSP
+        await sbClient.from("user_psp").delete().eq("user_id", userId);
+        if (selectedPSPs.length > 0) {
+          const userPspRecords = selectedPSPs.map(psp => ({
+            user_id: userId,
+            psp_name: psp,
+            accepted_terms: true
+          }));
+          await sbClient.from("user_psp").insert(userPspRecords).select();
+        }
+
+        // 6) Log invio a PSP esterni
+        for (const psp of selectedPSPs) {
+          console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
+        }
+
+        // 7) Messaggio finale
+        showSuccess("Iscrizione completata con successo!");
+      } catch (error) {
+        console.error("💥 Errore generale:", error);
+        showError("Errore durante l'invio dei dati. Riprova.");
       }
-
-      // 6) Simulazione invio a PSP esterni
-      for (const psp of selectedPSPs) {
-        console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
-      }
-
-      // 7) Messaggio finale + bottoni
-      showSuccess("Iscrizione completata con successo!");
-
-    } catch (error) {
-      console.error("💥 Errore generale:", error);
-      showError("Errore durante l'invio dei dati. Riprova.");
     }
-  }
-</script>
-
+  </script>
 </body>
 </html>
+>
 
 
 
