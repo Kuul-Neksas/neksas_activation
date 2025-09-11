@@ -29,19 +29,33 @@
     .logo {
       display: block;
       margin: 0 auto 10px;
-      height: 80px;
+      height: 180px;
     }
     label {
       display: block;
-      margin-top: 15px;
+      margin-top: 12px;
       font-weight: bold;
+      font-size: 0.95em;
     }
     input {
       width: 100%;
-      padding: 10px;
+      padding: 8px;
       margin-top: 5px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      font-size: 0.95em;
+    }
+    .password-wrapper {
+      position: relative;
+    }
+    .toggle-password {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 0.9em;
+      color: #555;
     }
     button {
       margin-top: 15px;
@@ -89,7 +103,10 @@
       <input type="email" id="login-email" />
 
       <label>Password</label>
-      <input type="password" id="login-password" />
+      <div class="password-wrapper">
+        <input type="password" id="login-password" />
+        <span class="toggle-password" onclick="togglePassword()">👁️</span>
+      </div>
 
       <button id="login-button">Accedi</button>
     </div>
@@ -122,37 +139,29 @@
 
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
 
-    let currentUser = null;
+    function togglePassword() {
+      const input = document.getElementById("login-password");
+      input.type = input.type === "password" ? "text" : "password";
+    }
 
     document.getElementById("login-button").onclick = async () => {
-      const email = document.getElementById("login-email").value.trim();
+      const email = document.getElementById("login-email").value.trim().toLowerCase();
       const password = document.getElementById("login-password").value.trim();
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        alert("Credenziali non valide.");
-        return;
-      }
-
-      currentUser = data.user;
-      document.getElementById("login-section").style.display = "none";
-      document.getElementById("checkout-section").style.display = "block";
-
-      loadUserData(email);
-    };
-
-    async function loadUserData(email) {
       const { data: user } = await supabase
         .from("users")
         .select("*")
         .eq("email", email)
+        .eq("password", password)
         .maybeSingle();
 
       if (!user) {
-        alert("Utente non trovato.");
+        alert("Credenziali non valide.");
         return;
       }
+
+      document.getElementById("login-section").style.display = "none";
+      document.getElementById("checkout-section").style.display = "block";
 
       document.getElementById("email").value = user.email;
       document.getElementById("business").value = user.business_name || "-";
@@ -165,7 +174,7 @@
       document.getElementById("amount").addEventListener("input", () =>
         renderPSPCards(pspList, user.id)
       );
-    }
+    };
 
     function renderPSPCards(pspList, userId) {
       const amount = parseFloat(document.getElementById("amount").value);
@@ -212,7 +221,7 @@
       }]);
     }
 
-    function generatePaymentLink(pspName, amount, description) {
+        function generatePaymentLink(pspName, amount, description) {
       const encodedDesc = encodeURIComponent(description);
       if (pspName.toLowerCase() === "stripe") {
         return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}`;
