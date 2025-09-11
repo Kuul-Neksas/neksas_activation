@@ -46,6 +46,14 @@ def choose_psp():
 def register_psp():
     return render_template('register-psp.html')
 
+@app.route('/checkout')
+def checkout_page():
+    return render_template(
+        'checkout.html',
+        supabase_url=app.config['SUPABASE_URL'],
+        supabase_key=app.config['SUPABASE_ANON_KEY']
+    )
+
 # 📊 API PSP disponibili
 @app.get('/api/psps')
 def list_psps():
@@ -81,3 +89,4 @@ if __name__ == "__main__":
         db.create_all()
         print("✅ Tabelle create.")
     app.run(debug=True, host="0.0.0.0", port=5000)
+
