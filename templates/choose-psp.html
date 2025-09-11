@@ -360,7 +360,15 @@ function goToDashboard() {
   }
 
   try {
-    // 🔹 1) Recupera utente
+    // 🔹 1) Recupera utente da Supabase Auth
+    const { data: authData, error: authError } = await sbClient.auth.getUser();
+    if (authError || !authData?.user?.id) {
+      showError("Utente non autenticato.");
+      return;
+    }
+    const authId = authData.user.id;
+
+    // 🔹 2) Recupera utente da tabella users
     const { data: userRecord, error: userError } = await sbClient
       .from("users")
       .select("id")
@@ -375,7 +383,7 @@ function goToDashboard() {
     const userId = userRecord.id;
     console.log("✅ Utente trovato:", userId);
 
-    // 🔹 2) Aggiorna tabella users
+    // 🔹 3) Aggiorna tabella users
     const { error: updateError } = await sbClient.from("users")
       .update({
         name: nome,
@@ -391,12 +399,26 @@ function goToDashboard() {
       return;
     }
 
-    // 🔹 3) Ripulisci vecchi PSP e condizioni
+    // 🔹 4) Upsert profilo in tabella profiles (usa authId)
+    const { error: profileError } = await sbClient.from("profiles").upsert([{
+      id: authId,
+      name: nome,
+      surname: cognome,
+      business_name: business
+    }]);
+
+    if (profileError) {
+      console.error("❌ Errore inserimento profilo:", profileError);
+      showError("Errore nel salvataggio del profilo.");
+      return;
+    }
+
+    // 🔹 5) Ripulisci vecchi PSP e condizioni
     await sbClient.from("user_psp").delete().eq("user_id", userId);
     await sbClient.from("user_psp_conditions").delete().eq("user_id", userId);
 
     if (selectedPSPs.length > 0) {
-      // 🔹 4) Inserisci PSP scelti
+      // 🔹 6) Inserisci PSP scelti
       const userPspRecords = selectedPSPs.map(psp => ({
         user_id: userId,
         psp_name: psp,
@@ -409,7 +431,7 @@ function goToDashboard() {
         console.log("✅ user_psp inseriti:", userPspRecords);
       }
 
-      // 🔹 5) Recupera condizioni dei PSP scelti
+      // 🔹 7) Recupera condizioni generiche dei PSP
       const { data: pspConditions, error: condError } = await sbClient
         .from("psp_conditions")
         .select("*")
@@ -420,11 +442,11 @@ function goToDashboard() {
       } else if (pspConditions && pspConditions.length > 0) {
         console.log("✅ Condizioni PSP recuperate:", pspConditions);
 
-        // 🔹 6) Inserisci condizioni utente
+        // 🔹 8) Inserisci condizioni utente personalizzate
         const userPspConditions = pspConditions.map(cond => ({
           user_id: userId,
           psp_id: cond.id,
-          circuit_name: cond.psp_name,  // ⚠️ se in futuro avrai circuiti multipli, qui si cambia
+          circuit_name: cond.psp_name,
           fixed_fee: cond.fixed_fee,
           percentage_fee: cond.percentage_fee,
           currency: cond.currency,
@@ -440,7 +462,7 @@ function goToDashboard() {
       }
     }
 
-    // 🔹 7) Successo
+    // 🔹 9) Successo
     showSuccess("Iscrizione completata con successo!");
   } catch (error) {
     console.error("💥 Errore generale:", error);
