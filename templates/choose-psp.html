@@ -344,84 +344,109 @@ function goToDashboard() {
 }
 
     async function handlePSPSelection(event) {
-      event.preventDefault();
-      console.log("🚀 Inizio handlePSPSelection");
+  event.preventDefault();
+  console.log("🚀 Inizio handlePSPSelection");
 
-      const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
-      const nome = document.querySelector('input[name="nome"]').value.trim();
-      const cognome = document.querySelector('input[name="cognome"]').value.trim();
-      const business = document.querySelector('input[name="business"]').value.trim();
-      const iban = document.querySelector('input[name="iban"]').value.trim();
-      const email = new URLSearchParams(window.location.search).get('email');
+  const selectedPSPs = Array.from(document.querySelectorAll('input[name="psp"]:checked')).map(el => el.value);
+  const nome = document.querySelector('input[name="nome"]').value.trim();
+  const cognome = document.querySelector('input[name="cognome"]').value.trim();
+  const business = document.querySelector('input[name="business"]').value.trim();
+  const iban = document.querySelector('input[name="iban"]').value.trim();
+  const email = new URLSearchParams(window.location.search).get('email');
 
-      if (!email) {
-        showError("Email non trovata nell'URL.");
-        return;
+  if (!email) {
+    showError("Email non trovata nell'URL.");
+    return;
+  }
+
+  try {
+    // 🔹 1) Recupera utente
+    const { data: userRecord, error: userError } = await sbClient
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (userError || !userRecord) {
+      console.error("❌ Errore user lookup:", userError);
+      showError("Utente non trovato nella tabella users.");
+      return;
+    }
+    const userId = userRecord.id;
+    console.log("✅ Utente trovato:", userId);
+
+    // 🔹 2) Aggiorna tabella users
+    const { error: updateError } = await sbClient.from("users")
+      .update({
+        name: nome,
+        surname: cognome,
+        business_name: business,
+        is_active: true
+      })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("❌ Errore aggiornamento utente:", updateError);
+      showError("Errore nell'aggiornamento del profilo utente.");
+      return;
+    }
+
+    // 🔹 3) Ripulisci vecchi PSP e condizioni
+    await sbClient.from("user_psp").delete().eq("user_id", userId);
+    await sbClient.from("user_psp_conditions").delete().eq("user_id", userId);
+
+    if (selectedPSPs.length > 0) {
+      // 🔹 4) Inserisci PSP scelti
+      const userPspRecords = selectedPSPs.map(psp => ({
+        user_id: userId,
+        psp_name: psp,
+        accepted_terms: true
+      }));
+      const { error: insertPspError } = await sbClient.from("user_psp").insert(userPspRecords);
+      if (insertPspError) {
+        console.error("❌ Errore inserimento user_psp:", insertPspError);
+      } else {
+        console.log("✅ user_psp inseriti:", userPspRecords);
       }
 
-      try {
-        // 1) Recupera utente da Supabase Auth
-        const { data: authData, error: authError } = await sbClient.auth.getUser();
-        if (authError || !authData?.user?.id) {
-          showError("Utente non autenticato.");
-          return;
+      // 🔹 5) Recupera condizioni dei PSP scelti
+      const { data: pspConditions, error: condError } = await sbClient
+        .from("psp_conditions")
+        .select("*")
+        .in("psp_name", selectedPSPs);
+
+      if (condError) {
+        console.error("❌ Errore nel recupero condizioni PSP:", condError);
+      } else if (pspConditions && pspConditions.length > 0) {
+        console.log("✅ Condizioni PSP recuperate:", pspConditions);
+
+        // 🔹 6) Inserisci condizioni utente
+        const userPspConditions = pspConditions.map(cond => ({
+          user_id: userId,
+          psp_id: cond.id,
+          circuit_name: cond.psp_name,  // ⚠️ se in futuro avrai circuiti multipli, qui si cambia
+          fixed_fee: cond.fixed_fee,
+          percentage_fee: cond.percentage_fee,
+          currency: cond.currency,
+          active: true
+        }));
+
+        const { error: insertCondError } = await sbClient.from("user_psp_conditions").insert(userPspConditions);
+        if (insertCondError) {
+          console.error("❌ Errore inserimento user_psp_conditions:", insertCondError);
+        } else {
+          console.log("✅ user_psp_conditions inserite:", userPspConditions);
         }
-        const authId = authData.user.id;
-
-        // 2) Recupera ID utente da tabella users
-        const { data: userRecord, error: userError } = await sbClient
-          .from("users")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle();
-
-        if (userError || !userRecord) {
-          showError("Utente non trovato nella tabella users.");
-          return;
-        }
-        const userId = userRecord.id;
-
-        // 3) Aggiorna tabella users
-        await sbClient.from("users")
-          .update({
-            name: nome,
-            surname: cognome,
-            business_name: business,
-            is_active: true
-          })
-          .eq("id", userId);
-
-        // 4) Upsert profilo
-        await sbClient.from("profiles").upsert([{
-          id: authId,
-          name: nome,
-          surname: cognome,
-          business_name: business
-        }]);
-
-        // 5) Ripulisci e inserisci PSP
-        await sbClient.from("user_psp").delete().eq("user_id", userId);
-        if (selectedPSPs.length > 0) {
-          const userPspRecords = selectedPSPs.map(psp => ({
-            user_id: userId,
-            psp_name: psp,
-            accepted_terms: true
-          }));
-          await sbClient.from("user_psp").insert(userPspRecords).select();
-        }
-
-        // 6) Log invio a PSP esterni
-        for (const psp of selectedPSPs) {
-          console.log(`➡️ Invio dati a ${psp.toUpperCase()} con IBAN ${iban}`);
-        }
-
-        // 7) Messaggio finale
-        showSuccess("Iscrizione completata con successo!");
-      } catch (error) {
-        console.error("💥 Errore generale:", error);
-        showError("Errore durante l'invio dei dati. Riprova.");
       }
     }
+
+    // 🔹 7) Successo
+    showSuccess("Iscrizione completata con successo!");
+  } catch (error) {
+    console.error("💥 Errore generale:", error);
+    showError("Errore durante l'invio dei dati. Riprova.");
+  }
+}
   </script>
 </body>
 </html>
