@@ -43,24 +43,25 @@
       border-radius: 6px;
       border: 1px solid #ccc;
     }
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #005fa3;
+    }
     .psp-card {
       border: 1px solid #0077cc;
       border-radius: 8px;
       padding: 10px;
       margin-top: 15px;
       background-color: #eef6ff;
-    }
-    .psp-card button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background-color: #0077cc;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .psp-card button:hover {
-      background-color: #005fa3;
     }
     #qr-container {
       margin-top: 20px;
@@ -83,25 +84,36 @@
     <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="logo" />
     <h1>Checkout</h1>
 
-    <label>Email</label>
-    <input type="text" id="email" readonly />
+    <div id="login-section">
+      <label>Email</label>
+      <input type="email" id="login-email" />
 
-    <label>Attività / Azienda</label>
-    <input type="text" id="business" readonly />
+      <label>Password</label>
+      <input type="password" id="login-password" />
 
-    <label>Descrizione (fattura, merce, ecc.)</label>
-    <input type="text" id="description" />
+      <button id="login-button">Accedi</button>
+    </div>
 
-    <label>Importo (€)</label>
-    <input type="number" id="amount" min="0.01" step="0.01" />
+    <div id="checkout-section" style="display:none;">
+      <label>Email</label>
+      <input type="text" id="email" readonly />
 
-    <div id="psp-list"></div>
+      <label>Attività / Azienda</label>
+      <input type="text" id="business" readonly />
 
-    <div id="qr-container"></div>
+      <label>Descrizione (fattura, merce, ecc.)</label>
+      <input type="text" id="description" />
 
-    <div class="disclaimer">
-      Proseguendo accetti le nostre condizioni. <br />
-      <span class="highlight">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
+      <label>Importo (€)</label>
+      <input type="number" id="amount" min="0.01" step="0.01" />
+
+      <div id="psp-list"></div>
+      <div id="qr-container"></div>
+
+      <div class="disclaimer">
+        Proseguendo accetti le nostre condizioni. <br />
+        <span class="highlight">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
+      </div>
     </div>
   </div>
 
@@ -109,19 +121,40 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
-    const email = new URLSearchParams(window.location.search).get("email");
 
-    document.getElementById("email").value = email;
+    let currentUser = null;
 
-    async function loadUserAndPSPs() {
-      const { data: user, error } = await supabase
+    document.getElementById("login-button").onclick = async () => {
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value.trim();
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        alert("Credenziali non valide.");
+        return;
+      }
+
+      currentUser = data.user;
+      document.getElementById("login-section").style.display = "none";
+      document.getElementById("checkout-section").style.display = "block";
+
+      loadUserData(email);
+    };
+
+    async function loadUserData(email) {
+      const { data: user } = await supabase
         .from("users")
         .select("*")
         .eq("email", email)
         .maybeSingle();
 
-      if (!user) return;
+      if (!user) {
+        alert("Utente non trovato.");
+        return;
+      }
 
+      document.getElementById("email").value = user.email;
       document.getElementById("business").value = user.business_name || "-";
 
       const { data: pspList } = await supabase
@@ -129,8 +162,9 @@
         .select("*")
         .eq("user_id", user.id);
 
-      const amountInput = document.getElementById("amount");
-      amountInput.addEventListener("input", () => renderPSPCards(pspList, user.id));
+      document.getElementById("amount").addEventListener("input", () =>
+        renderPSPCards(pspList, user.id)
+      );
     }
 
     function renderPSPCards(pspList, userId) {
@@ -156,7 +190,8 @@
           <p>💰 Costo stimato: €${psp.cost.toFixed(2)}</p>
           <button>Paga con ${psp.circuit_name}</button>
         `;
-        card.querySelector("button").onclick = () => handlePayment(psp, amount, description, userId);
+        card.querySelector("button").onclick = () =>
+          handlePayment(psp, amount, description, userId);
         container.appendChild(card);
       });
     }
@@ -187,8 +222,7 @@
         return `https://neksas-activation.onrender.com/pay?psp=${pspName}&amount=${amount}&desc=${encodedDesc}`;
       }
     }
-
-    loadUserAndPSPs();
   </script>
 </body>
 </html>
+
