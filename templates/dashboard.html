@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
   <style>
+    /* Stili identici ai tuoi */
     body {
       font-family: 'Poppins', sans-serif;
       background-color: #f4f7fa;
@@ -21,16 +22,14 @@
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      text-align: center; /* tutto centrato */
+      text-align: center;
     }
-
-    /* HERO (Area Riservata + logo + welcome) */
     .hero-top {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 20px;
-      flex-wrap: wrap; /* logo va sotto al titolo se schermo piccolo */
+      flex-wrap: wrap;
       margin-bottom: 15px;
     }
     .hero-title {
@@ -48,16 +47,15 @@
       margin-bottom: 30px;
       color: #444;
     }
-
     .section {
       margin-top: 30px;
-      text-align: left; /* dati e card allineati a sinistra */
+      text-align: left;
     }
     .section h2 {
       font-size: 1.3em;
       color: #0077cc;
       margin-bottom: 10px;
-      text-align: center; /* titoli sezioni centrati */
+      text-align: center;
     }
     .profile-info p,
     .psp-card p {
@@ -114,7 +112,6 @@
   <div class="container">
     <div id="error-message"></div>
 
-    <!-- HERO: Area Riservata + logo + welcome -->
     <div class="hero">
       <div class="hero-top">
         <div class="hero-title">Area Riservata</div>
@@ -147,7 +144,7 @@
       </div>
     </div>
 
-    <form method="get" action="/activate">
+    <form method="get" action="/activate.html">
       <button class="logout" type="submit">Torna all’attivazione</button>
     </form>
   </div>
@@ -155,10 +152,8 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const supabaseUrl = "{{ supabase_url }}";
-    const supabaseKey = "{{ supabase_key }}";
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const email = "{{ email }}";
+    const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
+    const email = new URLSearchParams(window.location.search).get("email");
 
     function showError(message) {
       const errorDiv = document.getElementById("error-message");
@@ -167,8 +162,7 @@
     }
 
     function hideError() {
-      const errorDiv = document.getElementById("error-message");
-      errorDiv.style.display = "none";
+      document.getElementById("error-message").style.display = "none";
     }
 
     async function loadUser() {
@@ -186,7 +180,7 @@
         .maybeSingle();
 
       if (error || !user) {
-        showError("Utente non trovato o errore nel caricamento.");
+        showError("Utente non trovato.");
         return;
       }
 
@@ -205,8 +199,8 @@
 
     async function loadPSPs(userId) {
       const { data, error } = await supabase
-        .from("user_psp_conditions")
-        .select("circuit_name, psp_conditions(psp_name, currency, fixed_fee, percentage_fee)")
+        .from("user_psp")
+        .select("psp_name")
         .eq("user_id", userId);
 
       const container = document.getElementById("psp-list");
@@ -222,21 +216,25 @@
         return;
       }
 
-      data.forEach((entry) => {
-        const psp = entry.psp_conditions;
+      for (const entry of data) {
+        const { data: pspDetails } = await supabase
+          .from("psp_conditions")
+          .select("*")
+          .eq("psp_name", entry.psp_name)
+          .maybeSingle();
+
         const card = document.createElement("div");
         card.className = "psp-card";
         card.innerHTML = `
-          <p><strong>PSP:</strong> ${psp.psp_name}</p>
-          <p><strong>Circuito:</strong> ${entry.circuit_name}</p>
-          <p>💶 <strong>Fee fissa:</strong> ${psp.fixed_fee ?? "-"} ${psp.currency ?? ""}</p>
-          <p>📊 <strong>Fee %:</strong> ${psp.percentage_fee ?? "-"}%</p>
+          <p><strong>PSP:</strong> ${entry.psp_name}</p>
+          <p>💶 <strong>Fee fissa:</strong> ${pspDetails?.fixed_fee ?? "-"} ${pspDetails?.currency ?? ""}</p>
+          <p>📊 <strong>Fee %:</strong> ${pspDetails?.percentage_fee ?? "-"}%</p>
         `;
         container.appendChild(card);
-      });
+      }
     }
 
-    async function loadTransactionChart(userId) {
+    a    async function loadTransactionChart(userId) {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
@@ -260,12 +258,24 @@
         return;
       }
 
+      // Conta le transazioni per PSP
       const counts = {};
-      data.forEach((row) => {
+      for (const row of data) {
         counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
-      });
+      }
 
-      const labels = Object.keys(counts);
+      // Recupera i nomi dei PSP
+      const labels = [];
+      for (const pspId of Object.keys(counts)) {
+        const { data: psp } = await supabase
+          .from("psp_conditions")
+          .select("psp_name")
+          .eq("id", pspId)
+          .maybeSingle();
+
+        labels.push(psp?.psp_name || "PSP sconosciuto");
+      }
+
       const values = Object.values(counts);
 
       chartContainer.innerHTML = "";
@@ -284,9 +294,8 @@
       });
     }
 
+    // Avvio caricamento
     loadUser();
   </script>
 </body>
 </html>
-
-
