@@ -6,7 +6,6 @@
   <title>Checkout Neksəs</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -96,13 +95,14 @@
       display: flex;
       justify-content: center;
       gap: 15px;
+      font-size: 1.5em;
     }
-    .share-icons i {
-      font-size: 1.3em;
-      cursor: pointer;
+    .share-icons a {
+      text-decoration: none;
       color: #0077cc;
+      transition: color 0.2s;
     }
-    .share-icons i:hover {
+    .share-icons a:hover {
       color: #005fa3;
     }
     .disclaimer {
@@ -210,7 +210,9 @@
       if (!amount || amount <= 0) return;
 
       const sorted = [...pspList].map(psp => {
-        const cost = parseFloat(psp.fixed_fee || 0) + (amount * parseFloat(psp.percentage_fee || 0) / 100);
+        const fixed = parseFloat(psp.fixed_fee || 0);
+        const perc = parseFloat(psp.percentage_fee || 0);
+        const cost = fixed + (amount * perc / 100);
         return { ...psp, cost };
       }).sort((a, b) => a.cost - b.cost);
 
@@ -219,8 +221,8 @@
         card.className = "psp-card";
         card.innerHTML = `
           <p><strong>${psp.circuit_name}</strong> ${index === 0 ? "✅ Consigliato" : ""}</p>
-          <p>💶 Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</p>
-          <p>📊 Fee %: ${psp.percentage_fee ?? "-"}%</p>
+          <p>💶 Fee fissa: €${parseFloat(psp.fixed_fee || 0).toFixed(2)}</p>
+          <p>📊 Fee %: ${parseFloat(psp.percentage_fee || 0).toFixed(2)}%</p>
           <p>💰 Costo stimato: €${psp.cost.toFixed(2)}</p>
           <button>Paga con ${psp.circuit_name}</button>
         `;
@@ -236,29 +238,14 @@
       qrContainer.innerHTML = `
         <p>Scansiona per pagare con ${psp.circuit_name}:</p>
         <canvas id="qr"></canvas>
-        <p>
-          <a href="${link}" target="_blank">Vai al pagamento</a>
-        </p>
+        <p><a href="${link}" target="_blank">Vai al pagamento</a></p>
         <div class="share-icons">
-          <i class="fa-solid fa-link" title="Copia link"></i>
-          <i class="fa-brands fa-whatsapp" title="Condividi su WhatsApp"></i>
-          <i class="fa-solid fa-envelope" title="Invia via Email"></i>
+          <a href="mailto:?subject=Pagamento con ${psp.circuit_name}&body=Ecco il link per pagare: ${link}" title="Condividi via Email">📧</a>
+          <a href="https://web.whatsapp.com/send?text=Ecco il link per pagare: ${link}" target="_blank" title="Condividi su WhatsApp Web">💻📱</a>
+          <a href="https://wa.me/?text=Ecco il link per pagare: ${link}" target="_blank" title="Condividi su WhatsApp Mobile">📱</a>
         </div>
       `;
       QRCode.toCanvas(document.getElementById("qr"), link);
-
-      // azioni share
-      const shareIcons = qrContainer.querySelector(".share-icons");
-      shareIcons.querySelector(".fa-link").onclick = () => {
-        navigator.clipboard.writeText(link);
-        alert("🔗 Link copiato!");
-      };
-      shareIcons.querySelector(".fa-whatsapp").onclick = () => {
-        window.open(`https://wa.me/?text=${encodeURIComponent("Ecco il link per il pagamento: " + link)}`, "_blank");
-      };
-      shareIcons.querySelector(".fa-envelope").onclick = () => {
-        window.location.href = `mailto:?subject=Pagamento&body=Ecco il link per il pagamento: ${link}`;
-      };
 
       await supabase.from("transactions").insert([{
         user_id: userId,
@@ -267,6 +254,11 @@
         currency: psp.currency,
         created_at: new Date().toISOString()
       }]);
+
+      // 🔄 Pulizia campi dopo pagamento
+      document.getElementById("description").value = "";
+      document.getElementById("amount").value = "";
+      document.getElementById("psp-list").innerHTML = "";
     }
 
     function generatePaymentLink(pspName, amount, description) {
@@ -282,6 +274,7 @@
   </script>
 </body>
 </html>
+
 
 
 
