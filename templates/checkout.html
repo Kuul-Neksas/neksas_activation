@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout Neksəs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #0077cc;
+    }
+    .logo {
+      display: block;
+      margin: 0 auto 10px;
+      height: 80px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .psp-card {
+      border: 1px solid #0077cc;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 15px;
+      background-color: #eef6ff;
+    }
+    .psp-card button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .psp-card button:hover {
+      background-color: #005fa3;
+    }
+    #qr-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .disclaimer {
+      margin-top: 30px;
+      font-size: 0.9em;
+      color: #666;
+      text-align: center;
+    }
+    .highlight {
+      font-weight: bold;
+      color: #cc0000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="logo" />
+    <h1>Checkout</h1>
+
+    <label>Email</label>
+    <input type="text" id="email" readonly />
+
+    <label>Attività / Azienda</label>
+    <input type="text" id="business" readonly />
+
+    <label>Descrizione (fattura, merce, ecc.)</label>
+    <input type="text" id="description" />
+
+    <label>Importo (€)</label>
+    <input type="number" id="amount" min="0.01" step="0.01" />
+
+    <div id="psp-list"></div>
+
+    <div id="qr-container"></div>
+
+    <div class="disclaimer">
+      Proseguendo accetti le nostre condizioni. <br />
+      <span class="highlight">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
+    const email = new URLSearchParams(window.location.search).get("email");
+
+    document.getElementById("email").value = email;
+
+    async function loadUserAndPSPs() {
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (!user) return;
+
+      document.getElementById("business").value = user.business_name || "-";
+
+      const { data: pspList } = await supabase
+        .from("user_psp_conditions")
+        .select("*")
+        .eq("user_id", user.id);
+
+      const amountInput = document.getElementById("amount");
+      amountInput.addEventListener("input", () => renderPSPCards(pspList, user.id));
+    }
+
+    function renderPSPCards(pspList, userId) {
+      const amount = parseFloat(document.getElementById("amount").value);
+      const description = document.getElementById("description").value.trim();
+      const container = document.getElementById("psp-list");
+      container.innerHTML = "";
+
+      if (!amount || amount <= 0) return;
+
+      const sorted = [...pspList].map(psp => {
+        const cost = parseFloat(psp.fixed_fee || 0) + (amount * parseFloat(psp.percentage_fee || 0) / 100);
+        return { ...psp, cost };
+      }).sort((a, b) => a.cost - b.cost);
+
+      sorted.forEach((psp, index) => {
+        const card = document.createElement("div");
+        card.className = "psp-card";
+        card.innerHTML = `
+          <p><strong>${psp.circuit_name}</strong> ${index === 0 ? "✅ Consigliato" : ""}</p>
+          <p>💶 Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</p>
+          <p>📊 Fee %: ${psp.percentage_fee ?? "-"}%</p>
+          <p>💰 Costo stimato: €${psp.cost.toFixed(2)}</p>
+          <button>Paga con ${psp.circuit_name}</button>
+        `;
+        card.querySelector("button").onclick = () => handlePayment(psp, amount, description, userId);
+        container.appendChild(card);
+      });
+    }
+
+    async function handlePayment(psp, amount, description, userId) {
+      const link = generatePaymentLink(psp.circuit_name, amount, description);
+      const qrContainer = document.getElementById("qr-container");
+      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">Vai al pagamento</a></p>`;
+      QRCode.toCanvas(document.getElementById("qr"), link);
+
+      await supabase.from("user_transaction").insert([{
+        user_id: userId,
+        psp_id: psp.psp_id || psp.id,
+        amount,
+        currency: psp.currency,
+        status: "pending",
+        created_at: new Date().toISOString()
+      }]);
+    }
+
+    function generatePaymentLink(pspName, amount, description) {
+      const encodedDesc = encodeURIComponent(description);
+      if (pspName.toLowerCase() === "stripe") {
+        return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}`;
+      } else if (pspName.toLowerCase() === "paypal") {
+        return `https://www.paypal.com/pay?amount=${amount}&desc=${encodedDesc}`;
+      } else {
+        return `https://neksas-activation.onrender.com/pay?psp=${pspName}&amount=${amount}&desc=${encodedDesc}`;
+      }
+    }
+
+    loadUserAndPSPs();
+  </script>
+</body>
+</html>
