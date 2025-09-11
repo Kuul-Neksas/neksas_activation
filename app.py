@@ -1,5 +1,5 @@
 import os
-from uuid import UUID as UUID_cls
+from uuid import UUID as UUID_cls, uuid4
 from functools import wraps
 
 from flask import Flask, jsonify, render_template, request, redirect, url_for
@@ -82,6 +82,85 @@ def dashboard():
         supabase_key=app.config['SUPABASE_ANON_KEY']
     )
 
+# ================================
+# 🚀 Checkout: nuovi endpoint
+# ================================
+
+@app.post("/api/create-transaction")
+def create_transaction():
+    """Crea una transazione nel DB quando il venditore avvia il checkout"""
+    data = request.json
+    try:
+        transaction_id = str(uuid4())
+        new_tx = {
+            "id": transaction_id,
+            "user_id": data["user_id"],
+            "psp_id": data["psp_id"],
+            "amount": data["amount"],
+            "currency": data.get("currency", "EUR"),
+            "description": data.get("description", ""),
+            "status": "pending"
+        }
+
+        db.session.execute(
+            db.text("""
+                INSERT INTO transactions (id, user_id, psp_id, amount, currency, description, status, created_at)
+                VALUES (:id, :user_id, :psp_id, :amount, :currency, :description, :status, NOW())
+            """),
+            new_tx
+        )
+        db.session.commit()
+
+        return jsonify({"transaction_id": transaction_id, "status": "pending"}), 201
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Errore create_transaction:", e)
+        return jsonify({"error": "Errore durante la creazione della transazione"}), 500
+
+
+@app.get("/api/transaction-status/<tx_id>")
+def transaction_status(tx_id):
+    """Controlla lo stato di una transazione (per polling dal venditore)"""
+    try:
+        result = db.session.execute(
+            db.text("SELECT id, status FROM transactions WHERE id = :id"),
+            {"id": tx_id}
+        ).mappings().first()
+
+        if not result:
+            return jsonify({"error": "Transazione non trovata"}), 404
+
+        return jsonify({"id": result["id"], "status": result["status"]})
+    except Exception as e:
+        print("❌ Errore transaction_status:", e)
+        return jsonify({"error": "Errore nel recupero stato transazione"}), 500
+
+
+@app.post("/webhook/<psp_name>")
+def webhook(psp_name):
+    """Riceve notifiche dai PSP (Stripe, PayPal, ecc.)"""
+    payload = request.json
+    print(f"📩 Webhook ricevuto da {psp_name}: {payload}")
+
+    tx_id = payload.get("transaction_id")
+    new_status = payload.get("status")
+
+    if not tx_id or not new_status:
+        return jsonify({"error": "Payload mancante"}), 400
+
+    try:
+        db.session.execute(
+            db.text("UPDATE transactions SET status = :status WHERE id = :id"),
+            {"status": new_status, "id": tx_id}
+        )
+        db.session.commit()
+        return jsonify({"message": "Aggiornato con successo"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Errore webhook:", e)
+        return jsonify({"error": "Errore aggiornamento transazione"}), 500
+
+
 # 🔧 Avvio sviluppo
 if __name__ == "__main__":
     with app.app_context():
@@ -89,4 +168,5 @@ if __name__ == "__main__":
         db.create_all()
         print("✅ Tabelle create.")
     app.run(debug=True, host="0.0.0.0", port=5000)
+
 
