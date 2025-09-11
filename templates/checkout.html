@@ -25,6 +25,15 @@
     h1 {
       text-align: center;
       color: #0077cc;
+      margin-bottom: 5px;
+    }
+    h2 {
+      text-align: center;
+      font-size: 1em;
+      font-weight: normal;
+      color: #555;
+      margin-top: 0;
+      margin-bottom: 20px;
     }
     .logo {
       display: block;
@@ -54,7 +63,7 @@
       top: 50%;
       transform: translateY(-50%);
       cursor: pointer;
-      font-size: 0.9em;
+      font-size: 1.1em;
       color: #555;
     }
     button {
@@ -97,6 +106,7 @@
   <div class="container">
     <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="logo" />
     <h1>Checkout</h1>
+    <h2>Benvenuto nel servizio dei pagamenti digitali Neksəs</h2>
 
     <div id="login-section">
       <label>Email</label>
@@ -105,7 +115,7 @@
       <label>Password</label>
       <div class="password-wrapper">
         <input type="password" id="login-password" />
-        <span class="toggle-password" onclick="togglePassword()">👁️</span>
+        <span class="toggle-password" id="toggle-eye">👁️</span>
       </div>
 
       <button id="login-button">Accedi</button>
@@ -139,10 +149,10 @@
 
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
 
-    function togglePassword() {
+    document.getElementById("toggle-eye").addEventListener("click", () => {
       const input = document.getElementById("login-password");
       input.type = input.type === "password" ? "text" : "password";
-    }
+    });
 
     document.getElementById("login-button").onclick = async () => {
       const email = document.getElementById("login-email").value.trim().toLowerCase();
@@ -152,7 +162,7 @@
         .from("users")
         .select("*")
         .eq("email", email)
-        .eq("password", password)
+        .eq("password_hash", password)
         .maybeSingle();
 
       if (!user) {
@@ -211,17 +221,16 @@
       qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${link}" target="_blank">Vai al pagamento</a></p>`;
       QRCode.toCanvas(document.getElementById("qr"), link);
 
-      await supabase.from("user_transaction").insert([{
+            await supabase.from("transactions").insert([{
         user_id: userId,
         psp_id: psp.psp_id || psp.id,
         amount,
         currency: psp.currency,
-        status: "pending",
         created_at: new Date().toISOString()
       }]);
     }
 
-        function generatePaymentLink(pspName, amount, description) {
+    function generatePaymentLink(pspName, amount, description) {
       const encodedDesc = encodeURIComponent(description);
       if (pspName.toLowerCase() === "stripe") {
         return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}`;
@@ -234,4 +243,5 @@
   </script>
 </body>
 </html>
+
 
