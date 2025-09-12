@@ -1,181 +1,218 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Checkout Neksəs</title>
 
-  <!-- Font Awesome (icone) - senza integrity per evitare blocchi -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
-  />
-
+  <!-- Font + small styles (simile al look che avevi) -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <style>
-    body { font-family: 'Poppins', sans-serif; background:#f4f7fa; margin:0; color:#333; }
-    .container { max-width:520px; margin:20px auto; padding:20px; background:#fff; border-radius:12px; box-shadow:0 0 10px rgba(0,0,0,0.08); }
-    .logo { display:block; margin:0 auto 10px; height:120px; }
-    h1 { text-align:center; color:#0077cc; margin-bottom:6px; }
-    h2 { text-align:center; color:#555; margin-top:0; margin-bottom:16px; font-weight:400; }
-    label { display:block; margin-top:12px; font-weight:600; font-size:0.95em; }
-    input[type="text"], input[type="email"], input[type="number"], input[type="password"] {
-      width:100%; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ccc; font-size:0.95em;
+    body { font-family: "Poppins", sans-serif; background:#f4f7fa; margin:0; color:#333; }
+    .wrap { max-width:560px; margin:22px auto; background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+    .logo { display:block; margin:0 auto 8px; height:120px; }
+    h1 { text-align:center; color:#0077cc; margin:6px 0 2px; font-size:1.6rem; }
+    h2 { text-align:center; color:#555; margin:0 0 14px; font-weight:400; font-size:.98rem; }
+
+    label { display:block; margin-top:12px; font-weight:600; font-size:.95rem; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+      width:100%; padding:9px 10px; border-radius:8px; border:1px solid #d0d7df; margin-top:6px; font-size:.95rem;
     }
     .password-wrapper { position:relative; }
-    .toggle-password { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:1.05em; color:#555; }
-    button.primary { margin-top:14px; padding:10px; background:#0077cc; color:#fff; border:none; border-radius:6px; cursor:pointer; width:100%; }
-    button.primary:hover { background:#005fa3; }
-    .inline-button { display:inline-block; margin-left:10px; padding:6px 10px; font-size:0.85em; background:#eee; border:none; border-radius:6px; cursor:pointer; }
-    .inline-button:hover { background:#ddd; }
-    .psp-card { border:1px solid #0077cc; border-radius:8px; padding:10px; margin-top:12px; background:#eef6ff; font-size:0.9em; box-shadow:0 2px 4px rgba(0,0,0,0.04); }
-    .psp-card strong { color:#0077cc; }
-    .psp-card small { color:#444; display:block; margin-top:6px; }
-    .psp-card .pay-btn { margin-top:8px; padding:8px 12px; font-size:0.9em; background:#0077cc; color:#fff; border:none; border-radius:6px; cursor:pointer; }
-    .psp-card .pay-btn:hover { background:#005fa3; }
-    #qr-container { margin-top:18px; text-align:center; word-break:break-word; }
-    .share-icons { margin-top:12px; text-align:center; font-size:1.5em; display:none; }
-    .share-icons i { margin:0 12px; cursor:pointer; transition: transform .15s ease; }
-    .share-icons i:hover { transform:scale(1.15); }
-    .disclaimer { margin-top:20px; font-size:0.9em; color:#666; text-align:center; }
-    .muted { color:#777; font-style:italic; font-size:0.9em; }
-    .success-msg { margin-top:12px; color:green; font-weight:600; text-align:center; display:none; }
-    .error-msg { margin-top:12px; color:#cc0000; font-weight:600; text-align:center; display:none; }
+    .toggle-password { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:1.05rem; }
+
+    .row { display:flex; gap:10px; align-items:center; margin-top:14px; }
+    .grow { flex:1; }
+    button { background:#0077cc; color:#fff; padding:10px 12px; border-radius:8px; border:0; cursor:pointer; font-weight:600; }
+    button.secondary { background:#6b7280; }
+    button.small { padding:6px 10px; font-size:.9rem; border-radius:6px; }
+
+    .psp-list { margin-top:12px; }
+    .psp-card {
+      border:1px solid #cfe7ff; background:#eef6ff; padding:10px; border-radius:8px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);
+      display:flex; justify-content:space-between; gap:12px; align-items:center;
+    }
+    .psp-left { display:flex; align-items:center; gap:12px; }
+    .psp-logo { width:42px; height:auto; }
+    .psp-meta { font-size:.92rem; color:#333; }
+    .muted { color:#6b7280; font-size:.9rem; }
+    .cost { font-weight:700; color:#0b5fa8; }
+
+    #qr-container { margin-top:14px; text-align:center; }
+    .share { margin-top:8px; display:flex; gap:12px; justify-content:center; align-items:center; }
+    .share button { border:1px solid #e6eef9; background:#fff; color:#333; padding:8px; border-radius:8px; cursor:pointer; display:flex; gap:8px; align-items:center; }
+    .share svg { width:18px; height:18px; }
+
+    .result { margin-top:14px; text-align:center; font-weight:700; color:green; }
+    .note { margin-top:10px; font-size:.9rem; color:#666; text-align:center; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <img src="/static/logo-neksas.png" alt="Logo Neksəs" class="logo" />
+  <div class="wrap">
+    <img src="/static/logo-neksas.png" alt="Neksəs" class="logo" />
     <h1>Checkout</h1>
     <h2>Benvenuto nel servizio dei pagamenti digitali Neksəs</h2>
 
     <!-- LOGIN -->
     <div id="login-section">
-      <label for="login-email">Email</label>
-      <input type="email" id="login-email" placeholder="tuo@esempio.it"/>
+      <label>Email</label>
+      <input id="login-email" type="email" autocomplete="username" />
 
-      <label for="login-password">Password</label>
+      <label>Password</label>
       <div class="password-wrapper">
-        <input type="password" id="login-password" placeholder="Password" />
-        <span class="toggle-password" id="toggle-eye">👁️</span>
+        <input id="login-password" type="password" autocomplete="current-password" />
+        <span id="toggle-eye" class="toggle-password" title="Mostra/Nascondi">👁️</span>
       </div>
 
-      <button id="login-button" class="primary">Accedi</button>
-      <p class="muted" style="text-align:center; margin-top:8px;">Usa le credenziali del prototipo</p>
+      <div class="row">
+        <button id="login-button" class="grow">Accedi</button>
+        <button id="clear-login" class="secondary small">Pulisci</button>
+      </div>
     </div>
 
     <!-- CHECKOUT -->
     <div id="checkout-section" style="display:none;">
       <label>Email</label>
-      <input type="text" id="email" readonly />
+      <input id="email" type="text" readonly />
 
       <label>Attività / Azienda</label>
-      <input type="text" id="business" readonly />
+      <input id="business" type="text" readonly />
 
       <label>Descrizione (fattura, merce, ecc.)</label>
-      <input type="text" id="description" placeholder="Es. Servizio X - fattura #123" />
+      <input id="description" type="text" placeholder="Descrizione" />
 
       <label>Importo (€)</label>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="number" id="amount" min="0.01" step="0.01" style="flex:1;" />
-        <button class="inline-button" id="btn-clear" type="button">Pulisci</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="amount" type="number" min="0.01" step="0.01" />
+        <button id="clear-fields" class="secondary small">Pulisci</button>
       </div>
 
-      <div id="psp-list" style="margin-top:8px;">
-        <p class="muted">Inserisci un importo per vedere i PSP disponibili e i costi stimati.</p>
+      <div class="psp-list" id="psp-list">
+        <p class="muted">Inserisci importo per vedere i PSP disponibili e il costo stimato.</p>
       </div>
 
       <div id="qr-container"></div>
 
-      <!-- icone condividi -->
-      <div class="share-icons" id="share-icons">
-        <i class="fas fa-envelope" style="color:#0077cc;" onclick="shareViaEmail()" title="Invia via Email"></i>
-        <i class="fab fa-whatsapp" style="color:#25D366;" onclick="shareViaWhatsApp()" title="Condividi su WhatsApp"></i>
-        <i class="fas fa-link" style="color:#555;" onclick="copyLink()" title="Copia link"></i>
+      <div id="share-area" style="display:none;">
+        <div class="share">
+          <button id="btn-mail" title="Invia link via email">
+            <!-- mail svg -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 8.5v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-width="1.6"/><path d="M21 8.5l-9 6-9-6"/></svg>
+            Email
+          </button>
+
+          <button id="btn-whatsapp" title="Condividi su WhatsApp">
+            <!-- whatsapp svg -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a4 4 0 0 1-4 4h-1l-3 3v-3H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4z" stroke-width="1.3"/></svg>
+            WhatsApp
+          </button>
+
+          <button id="btn-copy" title="Copia link">
+            <!-- link svg -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 14a5 5 0 0 0 7 0l1-1a5 5 0 1 0-7-7" stroke-width="1.6"/><path d="M14 10a5 5 0 0 0-7 0l-1 1a5 5 0 1 0 7 7" stroke-width="1.6"/></svg>
+            Copia link
+          </button>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;">
+          <button id="confirm-pay" class="small">Conferma pagamento (simula)</button>
+        </div>
       </div>
 
-      <div class="success-msg" id="success-msg">Pagamento generato e registrato (prototipo).</div>
-      <div class="error-msg" id="error-msg"></div>
+      <div id="result" class="result" style="display:none;"></div>
 
-      <div class="disclaimer">
-        Proseguendo accetti le nostre condizioni. <br />
-        <span class="muted">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
-      </div>
+      <p class="note">I dati vengono inviati al PSP scelto. Questo è un prototipo: la registrazione della transazione avviene dopo la conferma.</p>
     </div>
   </div>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // --- variabili passate dal render Flask (assicurati siano valorizzate in app.py)
-    const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
+    // valori iniettati da Flask
+    const SUPABASE_URL = "{{ supabase_url }}";
+    const SUPABASE_KEY = "{{ supabase_key }}";
 
-    // stato
-    let currentPaymentLink = "";
-    let lastPspList = []; // memorizza pspList recuperati al login
-    let currentUserId = null;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // elementi
     const loginSection = document.getElementById("login-section");
     const checkoutSection = document.getElementById("checkout-section");
     const loginBtn = document.getElementById("login-button");
+    const clearLogin = document.getElementById("clear-login");
     const toggleEye = document.getElementById("toggle-eye");
-    const pspListEl = document.getElementById("psp-list");
+    const clearFieldsBtn = document.getElementById("clear-fields");
+
+    const loginEmail = document.getElementById("login-email");
+    const loginPassword = document.getElementById("login-password");
+
+    const userEmailInput = document.getElementById("email");
+    const businessInput = document.getElementById("business");
+    const descriptionInput = document.getElementById("description");
+    const amountInput = document.getElementById("amount");
+    const pspListContainer = document.getElementById("psp-list");
     const qrContainer = document.getElementById("qr-container");
-    const shareIcons = document.getElementById("share-icons");
-    const btnClear = document.getElementById("btn-clear");
-    const successMsg = document.getElementById("success-msg");
-    const errorMsg = document.getElementById("error-msg");
+    const shareArea = document.getElementById("share-area");
+    const resultDiv = document.getElementById("result");
 
-    // helper
+    const btnMail = document.getElementById("btn-mail");
+    const btnWhatsApp = document.getElementById("btn-whatsapp");
+    const btnCopy = document.getElementById("btn-copy");
+    const btnConfirm = document.getElementById("confirm-pay");
+
+    // stato
+    let currentUser = null;
+    let pspList = [];
+    let pendingPayment = null; // {psp, amount, description, userId, link, pspId}
+
+    // utility
     function log(...args){ console.log("[checkout]", ...args); }
-    function showSuccess(text) { successMsg.textContent = text; successMsg.style.display = "block"; errorMsg.style.display = "none"; }
-    function showError(text) { errorMsg.textContent = text; errorMsg.style.display = "block"; successMsg.style.display = "none"; }
 
-    // toggle password visibility
-    toggleEye.addEventListener("click", () => {
-      const pwd = document.getElementById("login-password");
-      pwd.type = pwd.type === "password" ? "text" : "password";
-    });
-
-    // clear fields (pulizia completa)
-    function clearFields() {
-      document.getElementById("description").value = "";
-      document.getElementById("amount").value = "";
-      pspListEl.innerHTML = '<p class="muted">Inserisci un importo per vedere i PSP disponibili e i costi stimati.</p>';
+    function resetToLogin() {
+      loginSection.style.display = "";
+      checkoutSection.style.display = "none";
+      currentUser = null;
+      pspList = [];
+      pendingPayment = null;
+      resultDiv.style.display = "none";
       qrContainer.innerHTML = "";
-      shareIcons.style.display = "none";
-      successMsg.style.display = "none";
-      errorMsg.style.display = "none";
-      currentPaymentLink = "";
+      shareArea.style.display = "none";
+      clearAllInputs();
     }
 
-    // clear only inputs (usato dopo insert success)
-    function clearInputsOnly() {
-      document.getElementById("description").value = "";
-      document.getElementById("amount").value = "";
+    function clearAllInputs() {
+      descriptionInput.value = "";
+      amountInput.value = "";
+      pspListContainer.innerHTML = '<p class="muted">Inserisci importo per vedere i PSP disponibili e il costo stimato.</p>';
+      qrContainer.innerHTML = "";
     }
 
-    // Evento Pulisci
-    btnClear.addEventListener("click", () => {
-      clearFields();
+    // inizializza pulito
+    window.addEventListener("load", () => {
+      clearAllInputs();
     });
 
-    // Login
+    // toggle password
+    toggleEye.addEventListener("click", () => {
+      loginPassword.type = loginPassword.type === "password" ? "text" : "password";
+    });
+
+    clearLogin.addEventListener("click", () => {
+      loginEmail.value = "";
+      loginPassword.value = "";
+    });
+
+    // login
     loginBtn.addEventListener("click", async () => {
-      const email = document.getElementById("login-email").value.trim().toLowerCase();
-      const password = document.getElementById("login-password").value.trim();
+      const email = loginEmail.value.trim().toLowerCase();
+      const password = loginPassword.value.trim();
 
-      if (!email || !password) {
-        alert("Inserisci email e password.");
-        return;
-      }
+      if (!email || !password) { alert("Inserisci email e password"); return; }
 
-      log("Tentativo login per", email);
+      log("Attempt login for:", email);
+
+      // semplice lookup (prototipo)
       const { data: user, error } = await supabase
         .from("users")
         .select("*")
@@ -184,8 +221,8 @@
         .maybeSingle();
 
       if (error) {
-        console.error("Errore query users:", error);
-        alert("Errore di sistema.");
+        console.error("Errore login:", error);
+        alert("Errore durante la verifica (controlla console).");
         return;
       }
       if (!user) {
@@ -193,166 +230,245 @@
         return;
       }
 
-      // successo login
-      log("Login riuscito:", user);
+      // login OK
+      currentUser = user;
+      log("Utente trovato:", user);
+
+      // UI switch
       loginSection.style.display = "none";
-      checkoutSection.style.display = "block";
+      checkoutSection.style.display = "";
 
-      // set UI
-      document.getElementById("email").value = user.email;
-      document.getElementById("business").value = user.business_name || "-";
-      clearFields();
+      userEmailInput.value = user.email;
+      businessInput.value = user.business_name || "-";
+      descriptionInput.value = "";
+      amountInput.value = "";
 
-      // recupera user_psp_conditions per il calcolo costi (memorizza in lastPspList)
-      const { data: pspList, error: pspErr } = await supabase
+      // carica user_psp_conditions per l'utente
+      const { data, error: pErr } = await supabase
         .from("user_psp_conditions")
         .select("*")
         .eq("user_id", user.id);
 
-      if (pspErr) {
-        console.error("Errore recupero user_psp_conditions:", pspErr);
-        showError("Errore nel caricamento dei PSP.");
-        lastPspList = [];
-      } else {
-        log("PSP recuperati:", pspList?.length || 0);
-        lastPspList = pspList || [];
+      if (pErr) {
+        console.error("Errore caricamento psp:", pErr);
+        pspListContainer.innerHTML = `<p class="muted">Errore nel caricamento PSP.</p>`;
+        return;
       }
+      pspList = data || [];
+      log("PSP conditions loaded:", pspList);
 
-      currentUserId = user.id;
+      // aggiorna al cambio importo
+      amountInput.addEventListener("input", () => renderPSPCards());
+      descriptionInput.addEventListener("input", ()=> { /* keep for live behavior */ });
 
-      // aggiungi listener per l'input dell'importo
-      const amountInput = document.getElementById("amount");
-      amountInput.addEventListener("input", () => renderPSPCards(lastPspList, currentUserId));
+      // subito se importo già impostato
+      renderPSPCards();
     });
 
-    // render PSP cards con costo stimato (come prima)
-    function renderPSPCards(pspList, userId) {
-      const amountRaw = document.getElementById("amount").value;
-      const amount = parseFloat(amountRaw);
-      const description = document.getElementById("description").value.trim();
-      pspListEl.innerHTML = "";
+    // clear fields button
+    clearFieldsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearAllInputs();
+      resultDiv.style.display = "none";
+      pendingPayment = null;
+      shareArea.style.display = "none";
+    });
 
+    // render PSP cards (calcolo costi)
+    function renderPSPCards(){
+      const amount = parseFloat(amountInput.value);
+      if (!pspList || pspList.length === 0) {
+        pspListContainer.innerHTML = `<p class="muted">Nessun PSP configurato per questo utente.</p>`;
+        return;
+      }
       if (!amount || amount <= 0) {
-        pspListEl.innerHTML = '<p class="muted">Inserisci un importo per vedere i PSP disponibili e i costi stimati.</p>';
+        pspListContainer.innerHTML = `<p class="muted">Inserisci un importo valido per vedere i costi stimati.</p>`;
         return;
       }
 
-      const sorted = [...pspList].map(psp => {
-        const fixed = parseFloat(psp.fixed_fee || 0);
-        const pct = parseFloat(psp.percentage_fee || 0);
-        const cost = fixed + (amount * pct / 100);
-        return { ...psp, cost };
-      }).sort((a,b) => a.cost - b.cost);
+      // compute cost and sort
+      const enriched = pspList.map(p => {
+        const fixed = parseFloat(p.fixed_fee || 0);
+        const perc = parseFloat(p.percentage_fee || 0);
+        const cost = fixed + (amount * perc / 100);
+        return {...p, cost};
+      }).sort((a,b)=> a.cost - b.cost);
 
-      sorted.forEach((psp, idx) => {
+      // build DOM
+      pspListContainer.innerHTML = "";
+      enriched.forEach((psp, idx) => {
+        const left = document.createElement("div");
+        left.className = "psp-left";
+        const logo = document.createElement("img");
+        logo.className = "psp-logo";
+        // try to load matching logo by psp id/name — fallback to generic
+        const logoName = (psp.circuit_name || psp.psp_name || "psp").toString().toLowerCase().replace(/\s+/g,'');
+        logo.src = `/static/${logoName}.png`;
+        logo.onerror = () => { logo.src = '/static/psp-default.png'; };
+        const meta = document.createElement("div");
+        meta.className = "psp-meta";
+        meta.innerHTML = `<div><strong>${psp.circuit_name || psp.psp_name || 'PSP'}</strong> ${idx===0?'<span style="color:green">✅ Consigliato</span>':''}</div>
+                          <div class="muted">Fee fissa: ${psp.fixed_fee ?? '-'} ${psp.currency ?? 'EUR'} • Fee %: ${psp.percentage_fee ?? '-'}%</div>
+                          <div class="cost">Costo stimato: €${(psp.cost||0).toFixed(2)}</div>`;
+
+        left.appendChild(logo);
+        left.appendChild(meta);
+
+        const rightWrap = document.createElement("div");
+        rightWrap.style.display = "flex";
+        rightWrap.style.flexDirection = "column";
+        rightWrap.style.gap = "8px";
+        // Generate button
+        const genBtn = document.createElement("button");
+        genBtn.textContent = "Genera pagamento";
+        genBtn.className = "small";
+        genBtn.style.background = "#0077cc"; genBtn.style.color="#fff";
+        genBtn.onclick = () => generatePaymentFor(psp);
+
+        // optional direct PSP test links (Stripe/PayPal) — keep in separate UI if needed
+        rightWrap.appendChild(genBtn);
+
         const card = document.createElement("div");
         card.className = "psp-card";
-        card.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <strong>${psp.circuit_name}</strong>
-            ${idx === 0 ? '<span style="color:green;">✅ Consigliato</span>' : ''}
-          </div>
-          <small>Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency ?? "EUR"}</small>
-          <small>Fee %: ${psp.percentage_fee ?? "-"}%</small>
-          <div style="margin-top:8px;"><strong>Costo stimato: €${(psp.cost || 0).toFixed(2)}</strong></div>
-          <div style="text-align:right; margin-top:8px;">
-            <button class="pay-btn" type="button">Genera pagamento</button>
-          </div>
-        `;
-        // associa evento pay
-        card.querySelector("button").onclick = () => handlePayment(psp, amount, description, userId);
-        pspListEl.appendChild(card);
+        card.appendChild(left);
+        card.appendChild(rightWrap);
+
+        pspListContainer.appendChild(card);
       });
     }
 
-    // genera link + qr + insert transaction; pulisce inputs SOLO se insert OK
-    async function handlePayment(psp, amount, description, userId) {
-      log("Generazione pagamento per", psp.circuit_name, "amount", amount);
-      const link = generatePaymentLink(psp.circuit_name, amount, description);
-      currentPaymentLink = link;
+    // genera solo link + qr; NON registra transazione
+    function generatePaymentFor(psp) {
+      resultDiv.style.display = "none";
+      qrContainer.innerHTML = "";
+      shareArea.style.display = "none";
+      pendingPayment = null;
+
+      const amount = parseFloat(amountInput.value);
+      const description = descriptionInput.value.trim();
+
+      if (!amount || amount <= 0) { alert("Inserisci un importo valido."); return; }
+
+      // crea link di pagamento prototipo (puoi modificare per integrazione PSP)
+      const pspName = (psp.circuit_name || psp.psp_name || "psp").toString();
+      const encodedDesc = encodeURIComponent(description || "");
+      // preferisci link di test per Stripe/PayPal quando il pspName li identifica
+      let link;
+      if (pspName.toLowerCase().includes("stripe")) {
+        link = `https://buy.stripe.com/test_1234567890?amount=${amount}&desc=${encodedDesc}`;
+      } else if (pspName.toLowerCase().includes("paypal")) {
+        link = `https://www.sandbox.paypal.com/checkoutnow?token=TEST123&amt=${amount}&desc=${encodedDesc}`;
+      } else {
+        // nostro endpoint prototipo
+        link = `${location.origin}/pay?psp=${encodeURIComponent(pspName)}&amount=${amount}&desc=${encodedDesc}`;
+      }
 
       // mostra QR + link
-      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p style="word-break:break-all;"><a href="${link}" target="_blank" rel="noopener">${link}</a></p>`;
+      const container = document.createElement("div");
+      container.innerHTML = `<p style="margin-bottom:8px;">Scansiona / apri per pagare con <strong>${pspName}</strong>:</p>`;
+      const canvas = document.createElement("canvas");
+      container.appendChild(canvas);
+      const a = document.createElement("div");
+      a.innerHTML = `<p style="margin-top:8px;"><a href="${link}" target="_blank" rel="noreferrer">${link}</a></p>`;
+      container.appendChild(a);
+
+      qrContainer.innerHTML = "";
+      qrContainer.appendChild(container);
+
+      // generate QR (QRCode global from included script)
       try {
-        await QRCode.toCanvas(document.getElementById("qr"), link);
+        QRCode.toCanvas(canvas, link, { width: 200 });
       } catch (e) {
-        console.error("Errore generazione QR:", e);
+        console.error("Errore QR:", e);
       }
 
-      // mostra icone di condivisione (ma non pulire ancora)
-      shareIcons.style.display = "block";
+      // memorizza pendingPayment (in attesa conferma)
+      pendingPayment = {
+        psp,
+        link,
+        amount,
+        description,
+        userId: currentUser.id,
+        pspId: psp.psp_id ?? psp.psp_id ?? psp.id
+      };
 
-      // inserisci transazione (consideriamo l'insert come esito "locale" OK per il prototipo)
+      // mostra condivisione
+      shareArea.style.display = "";
+      // update share buttons
+      btnMail.onclick = () => {
+        const subject = encodeURIComponent("Pagamento - Neksəs");
+        const body = encodeURIComponent(`Gentile cliente,\n\nPuoi completare il pagamento al seguente link:\n\n${pendingPayment.link}\n\nDescrizione: ${pendingPayment.description}\nImporto: €${pendingPayment.amount}`);
+        window.open(`mailto:?subject=${subject}&body=${body}`);
+      };
+      btnWhatsApp.onclick = () => {
+        const text = encodeURIComponent(`Puoi completare il pagamento: ${pendingPayment.link}\nDescrizione: ${pendingPayment.description}\nImporto: €${pendingPayment.amount}`);
+        window.open(`https://wa.me/?text=${text}`);
+      };
+      btnCopy.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(pendingPayment.link);
+          alert("Link copiato negli appunti");
+        } catch {
+          alert("Impossibile copiare il link");
+        }
+      };
+
+      // Confirm button to register (simulate)
+      btnConfirm.onclick = confirmPayment;
+    }
+
+    // conferma (simulata) del pagamento: qui registriamo la transazione nel DB
+    async function confirmPayment() {
+      if (!pendingPayment) { alert("Nessun pagamento in sospeso."); return; }
+
+      resultDiv.style.display = "none";
       try {
-        const toInsert = {
-          user_id: userId,
-          psp_id: psp.psp_id || psp.id,
-          amount,
-          currency: psp.currency || 'EUR',
+        log("Registrazione transazione:", pendingPayment);
+
+        const { error } = await supabase.from("transactions").insert([{
+          user_id: pendingPayment.userId,
+          psp_id: pendingPayment.pspId,
+          amount: pendingPayment.amount,
+          currency: pendingPayment.psp.currency ?? "EUR",
           created_at: new Date().toISOString()
-        };
-        log("Insert transaction:", toInsert);
-        const { data: inserted, error: txErr } = await supabase.from("transactions").insert([toInsert]).select();
-        if (txErr) {
-          console.error("Errore insert transaction:", txErr);
-          showError("Errore nel registrare la transazione (prototipo).");
+        }]);
+
+        if (error) {
+          console.error("Errore insert transazione:", error);
+          alert("Errore nella registrazione della transazione (controlla console).");
           return;
         }
-        log("Transazione registrata:", inserted);
-        showSuccess("Pagamento generato e registrato (prototipo).");
 
-        // pulisci i campi di input SOLO dopo insert OK (descrizione e importo)
-        clearInputsOnly();
+        // successo
+        resultDiv.textContent = "Pagamento completato e registrato (prototipo).";
+        resultDiv.style.display = "";
+        // pulizia post-pagamento
+        descriptionInput.value = "";
+        amountInput.value = "";
+        pspListContainer.innerHTML = '<p class="muted">Inserisci importo per vedere i PSP disponibili e il costo stimato.</p>';
+        qrContainer.innerHTML = "";
+        shareArea.style.display = "none";
+        pendingPayment = null;
 
       } catch (err) {
-        console.error("Errore insert transactions (catch):", err);
-        showError("Errore durante la registrazione della transazione.");
+        console.error("Errore conferma pagamento:", err);
+        alert("Errore durante la conferma (vedi console).");
       }
     }
 
-    function generatePaymentLink(pspName, amount, description) {
-      const encodedDesc = encodeURIComponent(description || '');
-      if (!pspName) pspName = 'psp';
-      if (pspName.toLowerCase() === "stripe") {
-        return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}`;
-      } else if (pspName.toLowerCase() === "paypal") {
-        return `https://www.paypal.com/pay?amount=${amount}&desc=${encodedDesc}`;
-      } else {
-        return `https://neksas-activation.onrender.com/pay?psp=${encodeURIComponent(pspName)}&amount=${amount}&desc=${encodedDesc}`;
-      }
+    // handy: allow navigator.share if available (optional)
+    if (navigator.share) {
+      btnWhatsApp.style.display = "none"; // keep wa button for ws
+      // you could add a "share native" button if wanted
     }
 
-    // condivisione
-    window.shareViaEmail = function () {
-      if (!currentPaymentLink) return alert("Genera prima il pagamento.");
-      const subject = encodeURIComponent("Pagamento Neksəs");
-      const body = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
-      window.open(`mailto:?subject=${subject}&body=${body}`);
-    };
+    // fallback: if user clicks away / logout etc. we can reset UI
+    // (you can add a logout button that calls resetToLogin())
 
-    window.shareViaWhatsApp = function () {
-      if (!currentPaymentLink) return alert("Genera prima il pagamento.");
-      const text = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
-      window.open(`https://wa.me/?text=${text}`, "_blank");
-    };
-
-    window.copyLink = function () {
-      if (!currentPaymentLink) return alert("Genera prima il pagamento.");
-      navigator.clipboard.writeText(currentPaymentLink)
-        .then(()=> alert("Link copiato negli appunti."))
-        .catch(()=> alert("Errore nella copia del link."));
-    };
-
-    // pulizia iniziale quando si apre la pagina
-    window.addEventListener("load", () => {
-      try {
-        clearFields();
-        log("Pagina caricata: campi puliti.");
-      } catch(e){ console.warn("load clearFields error", e); }
-    });
   </script>
 </body>
 </html>
+
 
 
 
