@@ -326,9 +326,10 @@
             <canvas id="qr"></canvas>
             <p><a href="${url}" target="_blank">${url}</a></p>`;
         } else {
-          qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.psp_name}:</p>
-            <canvas id="qr"></canvas>
-            <p><a href="${url}" target="_blank"><strong>➡️ Vai al pagamento</strong></a></p>`;
+          qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
+  <canvas id="qr"></canvas>
+  <p><a href="${url}" target="_blank" style="text-decoration:underline; color:#0077cc;">Vai al pagamento</a></p>`;
+
         }
 
         // show icons
