@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout Neksəs</title>
 
-  <!-- Font Awesome (icones) - integrità valida -->
+  <!-- Font Awesome (icone) - senza integrity per evitare blocchi -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-    integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
@@ -36,12 +35,16 @@
     .psp-card { border:1px solid #0077cc; border-radius:8px; padding:10px; margin-top:12px; background:#eef6ff; font-size:0.9em; box-shadow:0 2px 4px rgba(0,0,0,0.04); }
     .psp-card strong { color:#0077cc; }
     .psp-card small { color:#444; display:block; margin-top:6px; }
+    .psp-card .pay-btn { margin-top:8px; padding:8px 12px; font-size:0.9em; background:#0077cc; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    .psp-card .pay-btn:hover { background:#005fa3; }
     #qr-container { margin-top:18px; text-align:center; word-break:break-word; }
     .share-icons { margin-top:12px; text-align:center; font-size:1.5em; display:none; }
     .share-icons i { margin:0 12px; cursor:pointer; transition: transform .15s ease; }
     .share-icons i:hover { transform:scale(1.15); }
     .disclaimer { margin-top:20px; font-size:0.9em; color:#666; text-align:center; }
     .muted { color:#777; font-style:italic; font-size:0.9em; }
+    .success-msg { margin-top:12px; color:green; font-weight:600; text-align:center; display:none; }
+    .error-msg { margin-top:12px; color:#cc0000; font-weight:600; text-align:center; display:none; }
   </style>
 </head>
 <body>
@@ -62,7 +65,7 @@
       </div>
 
       <button id="login-button" class="primary">Accedi</button>
-      <p class="muted" style="text-align:center; margin-top:8px;">Usa le credenziali di prova del prototipo</p>
+      <p class="muted" style="text-align:center; margin-top:8px;">Usa le credenziali del prototipo</p>
     </div>
 
     <!-- CHECKOUT -->
@@ -79,7 +82,7 @@
       <label>Importo (€)</label>
       <div style="display:flex; gap:8px; align-items:center;">
         <input type="number" id="amount" min="0.01" step="0.01" style="flex:1;" />
-        <button class="inline-button" onclick="clearFields()" type="button">Pulisci</button>
+        <button class="inline-button" id="btn-clear" type="button">Pulisci</button>
       </div>
 
       <div id="psp-list" style="margin-top:8px;">
@@ -95,6 +98,9 @@
         <i class="fas fa-link" style="color:#555;" onclick="copyLink()" title="Copia link"></i>
       </div>
 
+      <div class="success-msg" id="success-msg">Pagamento generato e registrato (prototipo).</div>
+      <div class="error-msg" id="error-msg"></div>
+
       <div class="disclaimer">
         Proseguendo accetti le nostre condizioni. <br />
         <span class="muted">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
@@ -105,12 +111,13 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // variabili dal render di Flask
+    // --- variabili passate dal render Flask (assicurati siano valorizzate in app.py)
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
-    let currentPaymentLink = "";
 
-    // helper log
-    function log(...args){ console.log("[checkout]", ...args); }
+    // stato
+    let currentPaymentLink = "";
+    let lastPspList = []; // memorizza pspList recuperati al login
+    let currentUserId = null;
 
     // elementi
     const loginSection = document.getElementById("login-section");
@@ -120,29 +127,45 @@
     const pspListEl = document.getElementById("psp-list");
     const qrContainer = document.getElementById("qr-container");
     const shareIcons = document.getElementById("share-icons");
+    const btnClear = document.getElementById("btn-clear");
+    const successMsg = document.getElementById("success-msg");
+    const errorMsg = document.getElementById("error-msg");
 
+    // helper
+    function log(...args){ console.log("[checkout]", ...args); }
+    function showSuccess(text) { successMsg.textContent = text; successMsg.style.display = "block"; errorMsg.style.display = "none"; }
+    function showError(text) { errorMsg.textContent = text; errorMsg.style.display = "block"; successMsg.style.display = "none"; }
+
+    // toggle password visibility
     toggleEye.addEventListener("click", () => {
       const pwd = document.getElementById("login-password");
       pwd.type = pwd.type === "password" ? "text" : "password";
     });
 
-    // pulisci campi (descrizione, importo, lista PSP, QR, icone)
+    // clear fields (pulizia completa)
     function clearFields() {
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
       pspListEl.innerHTML = '<p class="muted">Inserisci un importo per vedere i PSP disponibili e i costi stimati.</p>';
       qrContainer.innerHTML = "";
       shareIcons.style.display = "none";
+      successMsg.style.display = "none";
+      errorMsg.style.display = "none";
       currentPaymentLink = "";
     }
 
-    // pulisci solo inputs (descrizione + amount) — usato dopo la generazione del link se vuoi mantenere QR
-    function clearInputs() {
+    // clear only inputs (usato dopo insert success)
+    function clearInputsOnly() {
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
     }
 
-    // login
+    // Evento Pulisci
+    btnClear.addEventListener("click", () => {
+      clearFields();
+    });
+
+    // Login
     loginBtn.addEventListener("click", async () => {
       const email = document.getElementById("login-email").value.trim().toLowerCase();
       const password = document.getElementById("login-password").value.trim();
@@ -175,12 +198,12 @@
       loginSection.style.display = "none";
       checkoutSection.style.display = "block";
 
-      // ri-pulisci all'apertura checkout
+      // set UI
       document.getElementById("email").value = user.email;
       document.getElementById("business").value = user.business_name || "-";
       clearFields();
 
-      // recupera user_psp_conditions per il calcolo costi
+      // recupera user_psp_conditions per il calcolo costi (memorizza in lastPspList)
       const { data: pspList, error: pspErr } = await supabase
         .from("user_psp_conditions")
         .select("*")
@@ -188,18 +211,24 @@
 
       if (pspErr) {
         console.error("Errore recupero user_psp_conditions:", pspErr);
+        showError("Errore nel caricamento dei PSP.");
+        lastPspList = [];
       } else {
         log("PSP recuperati:", pspList?.length || 0);
+        lastPspList = pspList || [];
       }
+
+      currentUserId = user.id;
 
       // aggiungi listener per l'input dell'importo
       const amountInput = document.getElementById("amount");
-      amountInput.addEventListener("input", () => renderPSPCards(pspList || [], user.id));
+      amountInput.addEventListener("input", () => renderPSPCards(lastPspList, currentUserId));
     });
 
     // render PSP cards con costo stimato (come prima)
     function renderPSPCards(pspList, userId) {
-      const amount = parseFloat(document.getElementById("amount").value);
+      const amountRaw = document.getElementById("amount").value;
+      const amount = parseFloat(amountRaw);
       const description = document.getElementById("description").value.trim();
       pspListEl.innerHTML = "";
 
@@ -223,11 +252,11 @@
             <strong>${psp.circuit_name}</strong>
             ${idx === 0 ? '<span style="color:green;">✅ Consigliato</span>' : ''}
           </div>
-          <small>Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</small>
+          <small>Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency ?? "EUR"}</small>
           <small>Fee %: ${psp.percentage_fee ?? "-"}%</small>
-          <div style="margin-top:8px;"><strong>Costo stimato: €${psp.cost.toFixed(2)}</strong></div>
+          <div style="margin-top:8px;"><strong>Costo stimato: €${(psp.cost || 0).toFixed(2)}</strong></div>
           <div style="text-align:right; margin-top:8px;">
-            <button type="button">Genera pagamento</button>
+            <button class="pay-btn" type="button">Genera pagamento</button>
           </div>
         `;
         // associa evento pay
@@ -236,24 +265,24 @@
       });
     }
 
-    // genera link + qr + insert transaction; mantiene QR & share; pulisce description+amount
+    // genera link + qr + insert transaction; pulisce inputs SOLO se insert OK
     async function handlePayment(psp, amount, description, userId) {
       log("Generazione pagamento per", psp.circuit_name, "amount", amount);
       const link = generatePaymentLink(psp.circuit_name, amount, description);
       currentPaymentLink = link;
 
       // mostra QR + link
-      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p style="word-break:break-all;"><a href="${link}" target="_blank">${link}</a></p>`;
+      qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p style="word-break:break-all;"><a href="${link}" target="_blank" rel="noopener">${link}</a></p>`;
       try {
-        QRCode.toCanvas(document.getElementById("qr"), link);
+        await QRCode.toCanvas(document.getElementById("qr"), link);
       } catch (e) {
         console.error("Errore generazione QR:", e);
       }
 
-      // mostra icone di condivisione
+      // mostra icone di condivisione (ma non pulire ancora)
       shareIcons.style.display = "block";
 
-      // inserisci transazione (log)
+      // inserisci transazione (consideriamo l'insert come esito "locale" OK per il prototipo)
       try {
         const toInsert = {
           user_id: userId,
@@ -263,18 +292,22 @@
           created_at: new Date().toISOString()
         };
         log("Insert transaction:", toInsert);
-        const { error: txErr } = await supabase.from("transactions").insert([toInsert]);
+        const { data: inserted, error: txErr } = await supabase.from("transactions").insert([toInsert]).select();
         if (txErr) {
           console.error("Errore insert transaction:", txErr);
-        } else {
-          log("Transazione registrata (prototipo).");
+          showError("Errore nel registrare la transazione (prototipo).");
+          return;
         }
+        log("Transazione registrata:", inserted);
+        showSuccess("Pagamento generato e registrato (prototipo).");
+
+        // pulisci i campi di input SOLO dopo insert OK (descrizione e importo)
+        clearInputsOnly();
+
       } catch (err) {
         console.error("Errore insert transactions (catch):", err);
+        showError("Errore durante la registrazione della transazione.");
       }
-
-      // pulisci i soli campi di input (descrizione e importo), come richiesto
-      clearInputs();
     }
 
     function generatePaymentLink(pspName, amount, description) {
@@ -320,6 +353,7 @@
   </script>
 </body>
 </html>
+
 
 
 
