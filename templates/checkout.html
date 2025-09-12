@@ -310,7 +310,16 @@
       const encodedDesc = encodeURIComponent(description);
       const encodedBiz = encodeURIComponent(business);
       if (pspName.toLowerCase() === "stripe") {
-        return `https://checkout.stripe.com/pay/test?amount=${amount}&desc=${encodedDesc}&business=${encodedBiz}`;
+       async function requestStripeLink(amount, description, userId, business) {
+          const res = await fetch('/create-stripe-session', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+           body: JSON.stringify({ amount, description, user_id: userId, business })
+          });
+          const j = await res.json();
+          if (res.ok && j.url) return j.url;
+          throw new Error(j.error || 'stripe error');
+          }
       } else if (pspName.toLowerCase() === "paypal") {
         return `https://www.sandbox.paypal.com/checkoutnow?amount=${amount}&desc=${encodedDesc}&business=${encodedBiz}`;
       } else {
