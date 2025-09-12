@@ -319,18 +319,12 @@
 
         currentPaymentLink = url;
 
-        / // 🔹 Mostra QR + link/testo
+        // QR + Link (entrambi stesso URL)
         const qrContainer = document.getElementById("qr-container");
-        if (psp.psp_name.toLowerCase() === "stripe" || psp.psp_name.toLowerCase() === "paypal") {
-          qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.psp_name}:</p>
-            <canvas id="qr"></canvas>
-            <p><a href="${url}" target="_blank">${url}</a></p>`;
-        } else {
-          qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
-  <canvas id="qr"></canvas>
-  <p><a href="${url}" target="_blank" style="text-decoration:underline; color:#0077cc;">Vai al pagamento</a></p>`;
-
-        }
+        qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
+          <canvas id="qr"></canvas>
+          <p><a href="${url}" target="_blank">${url}</a></p>`;
+        QRCode.toCanvas(document.getElementById("qr"), url);
 
         // show icons
         document.getElementById("share-icons").style.display = "block";
@@ -374,6 +368,7 @@
   </script>
 </body>
 </html>
+
 
 
 
