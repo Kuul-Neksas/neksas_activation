@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+  <body>
+    <h1>Simula Pagamento {{ psp }}</h1>
+    <p>Importo: {{ amount }} €</p>
+    <form method="post">
+      <input type="hidden" name="user_id" value="{{ request.args.get('user_id','') }}">
+      <input type="hidden" name="psp_name" value="{{ psp }}">
+      <input type="hidden" name="amount" value="{{ amount }}">
+      <label>Numero carta (simulato)</label>
+      <input name="card" required>
+      <button type="submit">Conferma Pagamento</button>
+    </form>
+  </body>
+</html>
