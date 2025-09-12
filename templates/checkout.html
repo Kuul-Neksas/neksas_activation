@@ -208,11 +208,13 @@
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
     let currentPaymentLink = "";
 
+    // toggle password eye
     document.getElementById("toggle-eye").addEventListener("click", () => {
       const input = document.getElementById("login-password");
       input.type = input.type === "password" ? "text" : "password";
     });
 
+    // login handler
     document.getElementById("login-button").onclick = async () => {
       const email = document.getElementById("login-email").value.trim().toLowerCase();
       const password = document.getElementById("login-password").value.trim();
@@ -246,7 +248,8 @@
       );
     };
 
-    function clearFields() {
+    // clearFields FIXED
+    window.clearFields = function () {
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
       document.getElementById("psp-list").innerHTML = "";
@@ -254,6 +257,7 @@
       document.getElementById("share-icons").style.display = "none";
     }
 
+    // render PSP cards
     function renderPSPCards(pspList, userId) {
       const amount = parseFloat(document.getElementById("amount").value);
       const description = document.getElementById("description").value.trim();
@@ -287,7 +291,7 @@
       });
     }
 
-    // ✅ SOLO QUESTA PARTE MODIFICATA PER STRIPE E PAYPAL
+    // handle payment
     async function handlePayment(psp, amount, description, business, userId) {
       try {
         let url;
@@ -314,11 +318,18 @@
         }
 
         currentPaymentLink = url;
+
+        // QR + Link (entrambi stesso URL)
         const qrContainer = document.getElementById("qr-container");
-        qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p><canvas id="qr"></canvas><p><a href="${url}" target="_blank">${url}</a></p>`;
+        qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
+          <canvas id="qr"></canvas>
+          <p><a href="${url}" target="_blank">${url}</a></p>`;
         QRCode.toCanvas(document.getElementById("qr"), url);
+
+        // show icons
         document.getElementById("share-icons").style.display = "block";
 
+        // registra transazione solo PSP simulati
         if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
           await supabase.from("transactions").insert([{
             user_id: userId,
@@ -327,6 +338,7 @@
             currency: psp.currency,
             created_at: new Date().toISOString()
           }]);
+          // clear fields AFTER simulated transaction
           document.getElementById("description").value = "";
           document.getElementById("amount").value = "";
         }
@@ -336,6 +348,7 @@
       }
     }
 
+    // share icons functions
     window.shareViaEmail = function () {
       const subject = encodeURIComponent("Pagamento Neksəs");
       const body = encodeURIComponent(`Ecco il link per completare il pagamento:\n${currentPaymentLink}`);
@@ -355,6 +368,7 @@
   </script>
 </body>
 </html>
+
 
 
 
