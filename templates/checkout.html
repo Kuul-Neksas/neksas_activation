@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout Neksəs</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
@@ -179,10 +180,17 @@
       <div id="psp-list"></div>
       <div id="qr-container"></div>
       <div class="share-icons" id="share-icons" style="display:none;">
-        <span onclick="shareViaEmail()">📧</span>
-        <span onclick="shareViaWhatsApp()">📱</span>
-        <span onclick="copyLink()">🔗</span>
-      </div>
+  <span onclick="shareViaEmail()" title="Invia via Email">
+    <i class="fas fa-envelope" style="color:#0077cc;"></i>
+  </span>
+  <span onclick="shareViaWhatsApp()" title="Condividi su WhatsApp">
+    <i class="fab fa-whatsapp" style="color:#25D366;"></i>
+  </span>
+  <span onclick="copyLink()" title="Copia link">
+    <i class="fas fa-link" style="color:#555;"></i>
+  </span>
+</div>
+
 
       <div class="disclaimer">
         Proseguendo accetti le nostre condizioni. <br />
@@ -266,7 +274,7 @@
           </div>
           <div>💶 Fee fissa: ${psp.fixed_fee ?? "-"} ${psp.currency}</div>
           <div>📊 Fee %: ${psp.percentage_fee ?? "-"}%</div>
-          <div>💰 Costo stimato: <strong>€${psp.cost.toFixed(2)}</strong></div>
+          <div>💰 Costo stimato per il PSP: <strong>€${psp.cost.toFixed(2)}</strong></div>
           <button>Genera pagamento</button>
         `;
         card.querySelector("button").onclick = () =>
