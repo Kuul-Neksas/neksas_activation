@@ -1,33 +1,79 @@
+# app.py
 import os
-from uuid import UUID as UUID_cls, uuid4
+from uuid import uuid4
 from functools import wraps
 
-from flask import Flask, jsonify, render_template, request, redirect, url_for
+import stripe
+import requests
+from flask import Flask, jsonify, render_template, render_template_string, request, redirect, url_for
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
 
-# 🔧 Inizializzazione app
+# -----------------------
+# Inizializzazione app
+# -----------------------
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
-# 🔍 Verifica connessione DB
+# Stripe init (se presente in config)
+STRIPE_KEY = app.config.get("STRIPE_SECRET_KEY")
+if STRIPE_KEY:
+    stripe.api_key = STRIPE_KEY
+
+# Log DB uri utile per debug
 print(f"🔧 SQLALCHEMY_DATABASE_URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
 
-# 🔹 Costanti
+# Costanti
 CIRCUITS = ['Visa', 'Mastercard', 'Amex', 'Diners']
 
-# 🌐 Pagine pubbliche
+# -----------------------
+# Helper DB / util
+# -----------------------
+def table_has_column(table_name: str, column_name: str) -> bool:
+    """Controlla se la colonna esiste (info_schema)."""
+    try:
+        q = text("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = :table AND column_name = :col
+            LIMIT 1
+        """)
+        r = db.session.execute(q, {"table": table_name, "col": column_name}).scalar()
+        return bool(r)
+    except Exception as e:
+        app.logger.exception("Errore checking column existence")
+        return False
+
+def update_transaction_status(tx_id: str, new_status: str):
+    """Aggiorna lo stato di una transazione se la colonna esiste."""
+    if not table_has_column("transactions", "status"):
+        app.logger.warning("La tabella transactions non ha colonna 'status' -> skip update")
+        return False
+    try:
+        db.session.execute(
+            text("UPDATE transactions SET status = :status WHERE id = :id"),
+            {"status": new_status, "id": tx_id}
+        )
+        db.session.commit()
+        return True
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Impossibile aggiornare status transazione")
+        return False
+
+# -----------------------
+# Pagine pubbliche (render templates)
+# -----------------------
 @app.route('/')
 @app.route('/activate')
 def activate_page():
     return render_template(
         'activate.html',
-        supabase_url=app.config['SUPABASE_URL'],
-        supabase_anon_key=app.config['SUPABASE_ANON_KEY']
+        supabase_url=app.config.get('SUPABASE_URL'),
+        supabase_anon_key=app.config.get('SUPABASE_ANON_KEY')
     )
 
 @app.route('/redirect')
@@ -38,8 +84,8 @@ def auth_redirect():
 def choose_psp():
     return render_template(
         'choose-psp.html',
-        supabase_url=app.config['SUPABASE_URL'],
-        supabase_anon_key=app.config['SUPABASE_ANON_KEY']
+        supabase_url=app.config.get('SUPABASE_URL'),
+        supabase_anon_key=app.config.get('SUPABASE_ANON_KEY')
     )
 
 @app.route('/register-psp')
@@ -50,23 +96,10 @@ def register_psp():
 def checkout_page():
     return render_template(
         'checkout.html',
-        supabase_url=app.config['SUPABASE_URL'],
-        supabase_key=app.config['SUPABASE_ANON_KEY']
+        supabase_url=app.config.get('SUPABASE_URL'),
+        supabase_key=app.config.get('SUPABASE_ANON_KEY')
     )
 
-# 📊 API PSP disponibili
-@app.get('/api/psps')
-def list_psps():
-    psps = PSPCondition.query.filter_by(active=True).order_by(PSPCondition.psp_name.asc()).all()
-    return jsonify([{
-        'id': str(p.id),
-        'psp_name': p.psp_name,
-        'fixed_fee': float(p.fixed_fee or 0),
-        'percentage_fee': float(p.percentage_fee or 0),
-        'currency': p.currency or 'EUR'
-    } for p in psps])
-
-# 📋 Dashboard utente (versione semplificata lato client)
 @app.route('/dashboard')
 def dashboard():
     email = request.args.get("email", "").strip().lower()
@@ -78,95 +111,381 @@ def dashboard():
     return render_template(
         "dashboard.html",
         email=email,
-        supabase_url=app.config['SUPABASE_URL'],
-        supabase_key=app.config['SUPABASE_ANON_KEY']
+        supabase_url=app.config.get('SUPABASE_URL'),
+        supabase_key=app.config.get('SUPABASE_ANON_KEY')
     )
 
-# ================================
-# 🚀 Checkout: nuovi endpoint
-# ================================
+# -----------------------
+# API PSP disponibili
+# -----------------------
+@app.get('/api/psps')
+def list_psps():
+    psps = PSPCondition.query.filter_by(active=True).order_by(PSPCondition.psp_name.asc()).all()
+    return jsonify([{
+        'id': str(p.id),
+        'psp_name': p.psp_name,
+        'fixed_fee': float(p.fixed_fee or 0),
+        'percentage_fee': float(p.percentage_fee or 0),
+        'currency': p.currency or 'EUR'
+    } for p in psps])
+
+# -----------------------
+# Checkout core endpoints
+# -----------------------
 
 @app.post("/api/create-transaction")
 def create_transaction():
-    """Crea una transazione nel DB quando il venditore avvia il checkout"""
-    data = request.json
+    """
+    Crea una transazione "pending" in DB (chiamato dal venditore prima di aprire il checkout PSP).
+    La funzione è robusta: se la tabella transactions non ha colonne extra (status, description)
+    inserisce solo le colonne esistenti.
+    """
+    data = request.get_json(force=True) or {}
+    required = ["user_id", "psp_id", "amount"]
+    for k in required:
+        if k not in data:
+            return jsonify({"error": f"{k} mancante"}), 400
+
+    tx_id = str(uuid4())
+    # colonne base
+    columns = ["id", "user_id", "psp_id", "amount", "currency", "created_at"]
+    params = {
+        "id": tx_id,
+        "user_id": data["user_id"],
+        "psp_id": data["psp_id"],
+        "amount": data["amount"],
+        "currency": data.get("currency", "EUR")
+    }
+
+    # optional: description, status
+    if table_has_column("transactions", "description") and "description" in data:
+        columns.append("description")
+        params["description"] = data.get("description")
+    if table_has_column("transactions", "status"):
+        columns.append("status")
+        params["status"] = data.get("status", "pending")
+
+    # build SQL dinamico
+    cols_sql = ", ".join(columns) + ", created_at" if "created_at" not in columns else ", ".join(columns)
+    # note: created_at managed by DB default if omitted — per schema; but to be explicit use now()
+    insert_cols = ", ".join(columns)
+    insert_placeholders = ", ".join(":" + c for c in columns)
+    sql = text(f"""
+        INSERT INTO transactions ({insert_cols}, created_at)
+        VALUES ({insert_placeholders}, NOW())
+    """)
     try:
-        transaction_id = str(uuid4())
-        new_tx = {
-            "id": transaction_id,
-            "user_id": data["user_id"],
-            "psp_id": data["psp_id"],
-            "amount": data["amount"],
-            "currency": data.get("currency", "EUR"),
-            "description": data.get("description", ""),
-            "status": "pending"
-        }
-
-        db.session.execute(
-            db.text("""
-                INSERT INTO transactions (id, user_id, psp_id, amount, currency, description, status, created_at)
-                VALUES (:id, :user_id, :psp_id, :amount, :currency, :description, :status, NOW())
-            """),
-            new_tx
-        )
+        db.session.execute(sql, params)
         db.session.commit()
-
-        return jsonify({"transaction_id": transaction_id, "status": "pending"}), 201
+        return jsonify({"transaction_id": tx_id, "status": params.get("status", "pending")}), 201
     except Exception as e:
         db.session.rollback()
-        print("❌ Errore create_transaction:", e)
+        app.logger.exception("Errore create_transaction")
         return jsonify({"error": "Errore durante la creazione della transazione"}), 500
 
 
 @app.get("/api/transaction-status/<tx_id>")
 def transaction_status(tx_id):
-    """Controlla lo stato di una transazione (per polling dal venditore)"""
+    """Restituisce lo stato della transazione. Se non esiste campo status restituisce created_at."""
     try:
-        result = db.session.execute(
-            db.text("SELECT id, status FROM transactions WHERE id = :id"),
-            {"id": tx_id}
-        ).mappings().first()
-
-        if not result:
-            return jsonify({"error": "Transazione non trovata"}), 404
-
-        return jsonify({"id": result["id"], "status": result["status"]})
+        if table_has_column("transactions", "status"):
+            q = text("SELECT id, status FROM transactions WHERE id = :id")
+            row = db.session.execute(q, {"id": tx_id}).mappings().first()
+            if not row:
+                return jsonify({"error": "Transazione non trovata"}), 404
+            return jsonify({"id": row["id"], "status": row["status"]})
+        else:
+            q = text("SELECT id, created_at FROM transactions WHERE id = :id")
+            row = db.session.execute(q, {"id": tx_id}).mappings().first()
+            if not row:
+                return jsonify({"error": "Transazione non trovata"}), 404
+            return jsonify({"id": row["id"], "status": "unknown", "created_at": str(row["created_at"])})
     except Exception as e:
-        print("❌ Errore transaction_status:", e)
+        app.logger.exception("Errore transaction_status")
         return jsonify({"error": "Errore nel recupero stato transazione"}), 500
 
 
 @app.post("/webhook/<psp_name>")
 def webhook(psp_name):
-    """Riceve notifiche dai PSP (Stripe, PayPal, ecc.)"""
-    payload = request.json
-    print(f"📩 Webhook ricevuto da {psp_name}: {payload}")
-
+    """
+    Endpoint generico per webhook che può essere chiamato da PSP (solo per testing).
+    Payload atteso: { transaction_id: "...", status: "completed" }
+    """
+    payload = request.get_json(silent=True) or {}
+    app.logger.info("📩 Webhook ricevuto da %s: %s", psp_name, payload)
     tx_id = payload.get("transaction_id")
     new_status = payload.get("status")
 
     if not tx_id or not new_status:
-        return jsonify({"error": "Payload mancante"}), 400
+        return jsonify({"error": "Payload incompleto"}), 400
+
+    ok = update_transaction_status(tx_id, new_status)
+    if ok:
+        return jsonify({"message": "Aggiornato"}), 200
+    else:
+        return jsonify({"warning": "Unable to update (status column may be missing)"}), 200
+
+
+# -----------------------
+# Stripe / PayPal / simulate endpoints
+# -----------------------
+@app.post("/api/create-stripe-session")
+def create_stripe_session():
+    """
+    Crea una Stripe Checkout Session e restituisce la url.
+    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
+    """
+    if not STRIPE_KEY:
+        return jsonify({"error": "Stripe non configurato"}), 500
+
+    data = request.get_json(force=True) or {}
+    amount = data.get("amount")
+    if amount is None:
+        return jsonify({"error": "amount richiesto"}), 400
 
     try:
-        db.session.execute(
-            db.text("UPDATE transactions SET status = :status WHERE id = :id"),
-            {"status": new_status, "id": tx_id}
+        amount_cents = int(round(float(amount) * 100))
+    except Exception:
+        return jsonify({"error": "amount invalido"}), 400
+
+    base = app.config.get("BASE_URL", request.host_url.rstrip("/"))
+    success_url = f"{base}/payment-return?psp=stripe&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{base}/payment-cancel?psp=stripe"
+    metadata = {}
+    for k in ("user_id", "psp_id", "tx_id", "description", "business"):
+        if k in data and data[k] is not None:
+            metadata[k] = str(data[k])
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "eur",
+                    "product_data": {"name": f"Neksəs - {metadata.get('business','Pagamento')}"},
+                    "unit_amount": amount_cents,
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata=metadata
         )
-        db.session.commit()
-        return jsonify({"message": "Aggiornato con successo"}), 200
+        return jsonify({"url": session.url, "id": session.id})
     except Exception as e:
+        app.logger.exception("Stripe create session failed")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/api/create-paypal-order")
+def create_paypal_order():
+    """
+    Crea un ordine PayPal e restituisce l'URL di approvazione.
+    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
+    """
+    data = request.get_json(force=True) or {}
+    amount = data.get("amount")
+    if amount is None:
+        return jsonify({"error": "amount richiesto"}), 400
+
+    client_id = app.config.get("PAYPAL_CLIENT_ID")
+    secret = app.config.get("PAYPAL_SECRET")
+    mode = app.config.get("PAYPAL_MODE", "sandbox")
+    if not client_id or not secret:
+        return jsonify({"error": "PayPal non configurato"}), 500
+
+    env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
+
+    # get token
+    try:
+        token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
+        token_res.raise_for_status()
+        access_token = token_res.json().get("access_token")
+    except Exception as e:
+        app.logger.exception("PayPal token error")
+        return jsonify({"error": "paypal auth failed"}), 500
+
+    # prepare order payload; include tx_id as custom_id so we can recover it on return/capture
+    tx_id = data.get("tx_id")
+    purchase_unit = {
+        "amount": {"currency_code": "EUR", "value": f"{float(amount):.2f}"},
+        "description": data.get("description", "")
+    }
+    if tx_id:
+        purchase_unit["custom_id"] = str(tx_id)
+
+    return_url = f"{app.config.get('BASE_URL', request.host_url.rstrip('/'))}/payment-return?psp=paypal"
+    cancel_url = f"{app.config.get('BASE_URL', request.host_url.rstrip('/'))}/payment-cancel?psp=paypal"
+
+    order_payload = {
+        "intent": "CAPTURE",
+        "purchase_units": [purchase_unit],
+        "application_context": {
+            "return_url": return_url,
+            "cancel_url": cancel_url
+        }
+    }
+
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {access_token}"}
+    try:
+        r = requests.post(f"{env}/v2/checkout/orders", json=order_payload, headers=headers, timeout=10)
+        r.raise_for_status()
+        order = r.json()
+        approve = next((l["href"] for l in order.get("links", []) if l.get("rel") == "approve"), None)
+        return jsonify({"url": approve, "id": order.get("id")})
+    except Exception:
+        app.logger.exception("PayPal create order failed")
+        return jsonify({"error": "paypal order create failed"}), 500
+
+
+@app.route("/simulate-pay", methods=["GET", "POST"])
+def simulate_pay():
+    """
+    Pagina di simulazione pagamento (GET show form, POST registra/aggiorna transazione come 'completed').
+    Non salva dati sensibili delle carte.
+    """
+    if request.method == "GET":
+        psp = request.args.get("psp", "")
+        amount = request.args.get("amount", "")
+        desc = request.args.get("desc", "")
+        business = request.args.get("business", "")
+        user_id = request.args.get("user_id", "")
+        tx_id = request.args.get("tx_id", "")
+        html = render_template_string("""
+            <!doctype html>
+            <html>
+            <head><meta charset="utf-8"><title>Simula pagamento</title></head>
+            <body style="font-family:sans-serif; max-width:600px;margin:30px auto;">
+              <h2>Simula pagamento — {{psp}}</h2>
+              <p>Importo: {{amount}} €</p>
+              <p>Azienda: {{business}}</p>
+              <p>Descrizione: {{desc}}</p>
+              <form method="post">
+                <input type="hidden" name="user_id" value="{{user_id}}">
+                <input type="hidden" name="psp_name" value="{{psp}}">
+                <input type="hidden" name="amount" value="{{amount}}">
+                <input type="hidden" name="tx_id" value="{{tx_id}}">
+                <label>Numero carta (simulato): <input name="card" required></label><br><br>
+                <button type="submit">Conferma Pagamento (Simulato)</button>
+              </form>
+            </body>
+            </html>
+        """, psp=psp, amount=amount, desc=desc, business=business, user_id=user_id, tx_id=tx_id)
+        return html
+
+    # POST -> registra/aggiorna transazione come "completed"
+    form = request.form
+    user_id = form.get("user_id")
+    psp_name = form.get("psp_name")
+    amount = form.get("amount")
+    tx_id = form.get("tx_id")
+
+    try:
+        if tx_id:
+            # aggiorna status su transazione esistente
+            updated = update_transaction_status(tx_id, "completed")
+            if not updated:
+                # se non è possibile aggiornare (colonna mancante), fallback: create new row
+                real_tx_id = str(uuid4())
+                db.session.execute(
+                    text("INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at) VALUES (:id,:uid,:psp,:am,'EUR', NOW())"),
+                    {"id": real_tx_id, "uid": user_id, "psp": None, "am": amount}
+                )
+                db.session.commit()
+        else:
+            # crea nuova transazione completed
+            new_id = str(uuid4())
+            db.session.execute(
+                text("INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at) VALUES (:id,:uid,:psp,:am,'EUR', NOW())"),
+                {"id": new_id, "uid": user_id, "psp": None, "am": amount}
+            )
+            db.session.commit()
+        # render result
+        return render_template_string("""
+            <h2>Pagamento simulato completato</h2>
+            <p>Grazie — pagamento registrato (simulazione).</p>
+            <p><a href="/">Torna all'app</a></p>
+        """)
+    except Exception:
         db.session.rollback()
-        print("❌ Errore webhook:", e)
-        return jsonify({"error": "Errore aggiornamento transazione"}), 500
+        app.logger.exception("simulate-pay failed")
+        return "Errore durante la registrazione transazione simulata", 500
 
 
-# 🔧 Avvio sviluppo
+@app.route("/payment-return")
+def payment_return():
+    """
+    Endpoint di ritorno per Stripe/PayPal. Verifica l'esito e registra/aggiorna transazione.
+    GET params: psp=stripe|paypal, session_id (stripe) o token (paypal)
+    """
+    psp = request.args.get("psp")
+    if not psp:
+        return "PSP mancante", 400
+
+    if psp == "stripe":
+        session_id = request.args.get("session_id")
+        if not session_id:
+            return "session_id mancante", 400
+        try:
+            sess = stripe.checkout.Session.retrieve(session_id)
+            status = sess.payment_status  # 'paid' quando completato
+            tx_id = sess.metadata.get("tx_id") if getattr(sess, "metadata", None) else None
+            if status == "paid":
+                if tx_id:
+                    update_transaction_status(tx_id, "completed")
+                return render_template_string("<h2>Pagamento completato (Stripe)</h2><p>Grazie.</p>")
+            else:
+                return render_template_string("<h2>Pagamento non completato (Stripe)</h2><p>Stato: {{st}}</p>", st=status)
+        except Exception:
+            app.logger.exception("Errore verifica stripe session")
+            return render_template_string("<h2>Errore verifica Stripe</h2>"), 500
+
+    if psp == "paypal":
+        # PayPal: token param = order id
+        order_id = request.args.get("token")
+        if not order_id:
+            return "token/order id mancante", 400
+
+        client_id = app.config.get("PAYPAL_CLIENT_ID")
+        secret = app.config.get("PAYPAL_SECRET")
+        mode = app.config.get("PAYPAL_MODE", "sandbox")
+        env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
+        try:
+            # get token
+            token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
+            token_res.raise_for_status()
+            access_token = token_res.json().get("access_token")
+
+            # capture order
+            headers = {"Content-Type":"application/json", "Authorization": f"Bearer {access_token}"}
+            cap = requests.post(f"{env}/v2/checkout/orders/{order_id}/capture", headers=headers, timeout=10)
+            cap.raise_for_status()
+            capture_res = cap.json()
+            # prova a leggere custom_id da purchase_units
+            pu = capture_res.get("purchase_units", [])
+            tx_id = None
+            if pu and isinstance(pu, list) and "custom_id" in pu[0]:
+                tx_id = pu[0]["custom_id"]
+            # se capture ok -> aggiorna transazione
+            if tx_id:
+                update_transaction_status(tx_id, "completed")
+            return render_template_string("<h2>Pagamento completato (PayPal)</h2><p>Grazie.</p>")
+        except Exception:
+            app.logger.exception("Errore capture PayPal")
+            return render_template_string("<h2>Errore verifica PayPal</h2>"), 500
+
+    return "PSP non supportato", 400
+
+# -----------------------
+# Avvio app (sviluppo)
+# -----------------------
 if __name__ == "__main__":
     with app.app_context():
-        print("🔨 Creazione tabelle...")
-        db.create_all()
-        print("✅ Tabelle create.")
-    app.run(debug=True, host="0.0.0.0", port=5000)
-
-
+        print("🔨 Creazione tabelle (se mancano)...")
+        try:
+            db.create_all()
+            print("✅ Tabelle create/verificate.")
+        except Exception:
+            app.logger.exception("create_all failed (continuiamo)")
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
