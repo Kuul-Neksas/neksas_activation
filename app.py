@@ -304,35 +304,64 @@ def simulate_pay():
             user_id=request.args.get("user_id", "")
         )
 
+    # POST: conferma pagamento simulato
     form = request.form
     user_id = form.get("user_id")
     psp_name = form.get("psp_name")
     amount = form.get("amount")
+    desc = form.get("desc")
+    business = form.get("business")
+
+    # Validazione base
+    if not user_id or not psp_name or not amount:
+        return render_template("simulate.html",
+            psp=psp_name, amount=amount, user_id=user_id,
+            business=business, desc=desc,
+            error="Parametri mancanti"
+        ), 400
 
     try:
-        # trova psp_id
+        # Recupera psp_id da user_psp_conditions
         psp_row = db.session.execute(
-            text("SELECT id FROM psp_conditions WHERE psp_name = :psp_name LIMIT 1"),
-            {"psp_name": psp_name}
+            text("""
+                SELECT psp_id FROM user_psp_conditions
+                WHERE user_id = :user_id AND circuit_name = :psp_name
+                LIMIT 1
+            """),
+            {"user_id": user_id, "psp_name": psp_name}
         ).mappings().first()
-        psp_id = psp_row["id"] if psp_row else None
 
+        psp_id = psp_row["psp_id"] if psp_row else None
+        if not psp_id:
+            return render_template("simulate.html",
+                psp=psp_name, amount=amount, user_id=user_id,
+                business=business, desc=desc,
+                error="PSP non abilitato per questo utente"
+            ), 400
+
+        # Inserisce transazione simulata
         new_id = str(uuid4())
         db.session.execute(
-            text("INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at) VALUES (:id,:uid,:psp,:am,'EUR', NOW())"),
+            text("""
+                INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
+                VALUES (:id, :uid, :psp, :am, 'EUR', NOW())
+            """),
             {"id": new_id, "uid": user_id, "psp": psp_id, "am": amount}
         )
         db.session.commit()
 
         return render_template("simulate.html",
             psp=psp_name, amount=amount, user_id=user_id,
+            business=business, desc=desc,
             success=True, tx_id=new_id
         )
+
     except Exception as e:
         db.session.rollback()
-        app.logger.exception("simulate-pay failed")
+        app.logger.exception("Errore durante la simulazione del pagamento")
         return render_template("simulate.html",
             psp=psp_name, amount=amount, user_id=user_id,
+            business=business, desc=desc,
             error=str(e)
         ), 500
 
