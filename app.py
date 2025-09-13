@@ -297,13 +297,16 @@ def create_paypal_order():
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
     if request.method == "GET":
-        return render_template("simulate.html",
-            psp=request.args.get("psp"),
-            amount=request.args.get("amount"),
-            desc=request.args.get("desc"),
-            business=request.args.get("business"),
-            user_id=request.args.get("user_id", "")
-        )
+    return render_template("simulate.html",
+        psp=request.args.get("psp"),
+        amount=request.args.get("amount"),
+        desc=request.args.get("desc"),
+        business=request.args.get("business"),
+        user_id=request.args.get("user_id", ""),
+        success=None,
+        error=None,
+        tx_id=None
+    )
 
     # POST: conferma pagamento simulato
     form = request.form
