@@ -113,6 +113,7 @@
     #qr-container {
       margin-top: 20px;
       text-align: center;
+      word-break: break-word;
     }
     .share-icons {
       margin-top: 10px;
@@ -146,14 +147,10 @@
     .inline-button:hover {
       background-color: #aaa;
     }
-    .hidden-link {
-      text-decoration: none;
+    a.payment-hidden {
       color: #0077cc;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .hidden-link:hover {
       text-decoration: underline;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -217,13 +214,12 @@
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
     let currentPaymentLink = "";
 
-    // toggle password eye
     document.getElementById("toggle-eye").addEventListener("click", () => {
       const input = document.getElementById("login-password");
       input.type = input.type === "password" ? "text" : "password";
     });
 
-    // login handler
+    // login
     document.getElementById("login-button").onclick = async () => {
       const email = document.getElementById("login-email").value.trim().toLowerCase();
       const password = document.getElementById("login-password").value.trim();
@@ -257,16 +253,16 @@
       );
     };
 
-    // clearFields FIXED
+    // ensure clearFields available globally
     window.clearFields = function () {
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
       document.getElementById("psp-list").innerHTML = "";
       document.getElementById("qr-container").innerHTML = "";
       document.getElementById("share-icons").style.display = "none";
+      currentPaymentLink = "";
     }
 
-    // render PSP cards
     function renderPSPCards(pspList, userId) {
       const amount = parseFloat(document.getElementById("amount").value);
       const description = document.getElementById("description").value.trim();
@@ -300,7 +296,7 @@
       });
     }
 
-    // handle payment
+    // MAIN CHANGE: make QR/link absolute using window.location.origin
     async function handlePayment(psp, amount, description, business, userId) {
       try {
         let url;
@@ -308,7 +304,7 @@
           const r = await fetch("/create-stripe-session", {
             method: "POST",
             headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business})
+            body: JSON.stringify({amount, description, user_id: userId, business: business})
           });
           const j = await r.json();
           if (!r.ok) throw new Error(j.error || "Errore Stripe");
@@ -317,7 +313,7 @@
           const r = await fetch("/create-paypal-order", {
             method: "POST",
             headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business})
+            body: JSON.stringify({amount, description, user_id: userId, business: business})
           });
           const j = await r.json();
           if (!r.ok) throw new Error(j.error || "Errore PayPal");
@@ -326,20 +322,27 @@
           url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}`;
         }
 
-        currentPaymentLink = url;
+        // Convert relative links to absolute so QR / share work from mobile
+        const absoluteUrl = new URL(url, window.location.origin).href;
+        currentPaymentLink = absoluteUrl;
 
-        // QR + link "Vai al pagamento"
+        // QR + Link (entrambi stesso URL)
         const qrContainer = document.getElementById("qr-container");
-        qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
+        // Create clickable label "Vai al pagamento" that hides the raw URL behind it
+        qrContainer.innerHTML = `
+          <p>Scansiona per pagare con ${psp.circuit_name}:</p>
           <canvas id="qr"></canvas>
-          <p><a class="hidden-link" href="${url}" target="_blank">Vai al pagamento</a></p>`;
-        QRCode.toCanvas(document.getElementById("qr"), url);
+          <p><a class="payment-hidden" id="payment-hidden" href="${absoluteUrl}" target="_blank">Vai al pagamento</a></p>
+        `;
+        // generate QR for absoluteUrl
+        QRCode.toCanvas(document.getElementById("qr"), absoluteUrl);
 
-        // show icons
+        // show icons for sharing
         document.getElementById("share-icons").style.display = "block";
 
-        // registra transazione solo PSP simulati
+        // Non registrare transazione qui se pag con Stripe/PayPal reale: registrerai al payment-return/webhook.
         if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
+          // record simulated transaction now
           await supabase.from("transactions").insert([{
             user_id: userId,
             psp_id: psp.psp_id || psp.id,
@@ -347,7 +350,7 @@
             currency: psp.currency,
             created_at: new Date().toISOString()
           }]);
-          // clear fields AFTER simulated transaction
+          // clear fields AFTER transaction recorded (simulated)
           document.getElementById("description").value = "";
           document.getElementById("amount").value = "";
         }
@@ -377,6 +380,7 @@
   </script>
 </body>
 </html>
+
 
 
 
