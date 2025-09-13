@@ -1,15 +1,59 @@
 <!doctype html>
-<html>
-  <body>
-    <h1>Simula Pagamento {{ psp }}</h1>
-    <p>Importo: {{ amount }} €</p>
-    <form method="post">
-      <input type="hidden" name="user_id" value="{{ request.args.get('user_id','') }}">
-      <input type="hidden" name="psp_name" value="{{ psp }}">
-      <input type="hidden" name="amount" value="{{ amount }}">
-      <label>Numero carta (simulato)</label>
-      <input name="card" required>
-      <button type="submit">Conferma Pagamento</button>
-    </form>
-  </body>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Simula Pagamento</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 20px; background:#f7f9fb; color:#222; }
+    .card { max-width:700px; margin:20px auto; background:white; padding:18px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    h1 { margin-top:0; color:#0077cc; }
+    label { display:block; margin:12px 0 6px; font-weight:700; }
+    input[type=text], input[type=number], input[type=password] { width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; }
+    .btn { display:inline-block; margin-top:12px; padding:10px 14px; background:#0077cc; color:white; border-radius:6px; border:none; cursor:pointer; }
+    .btn:hover { background:#005fa3; }
+    .meta { color:#555; font-size:0.95em; margin-bottom:12px; }
+    .success { background:#e9f7ef; color:#1b7a3a; padding:12px; border-radius:6px; margin-top:12px; }
+    .error { background:#fdecea; color:#9b2222; padding:12px; border-radius:6px; margin-top:12px; }
+    .small { font-size:0.9em; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Simula Pagamento {{ psp or "" }}</h1>
+
+    <p class="meta">
+      <strong>Importo:</strong> {{ amount or "-" }} &nbsp;
+      <strong>Descrizione:</strong> {{ desc or "-" }} &nbsp;
+      <strong>Azienda:</strong> {{ business or "-" }}
+    </p>
+
+    {% if success %}
+      <div class="success">
+        Pagamento simulato registrato con successo.<br>
+        ID transazione: <strong>{{ tx_id }}</strong>
+      </div>
+
+      <p class="small">Puoi chiudere questa pagina o tornare al punto vendita.</p>
+
+    {% elif error %}
+      <div class="error">
+        Errore durante la simulazione del pagamento: {{ error }}
+      </div>
+    {% else %}
+      <form method="post" autocomplete="off">
+        <input type="hidden" name="user_id" value="{{ user_id or '' }}">
+        <input type="hidden" name="psp_name" value="{{ psp or '' }}">
+        <input type="hidden" name="amount" value="{{ amount or '' }}">
+        <input type="hidden" name="business" value="{{ business or '' }}">
+        <input type="hidden" name="desc" value="{{ desc or '' }}">
+
+        <label for="card">Numero carta (simulato)</label>
+        <input id="card" name="card" type="text" maxlength="64" placeholder="Inserisci numero carta (simulato)" required>
+
+        <button class="btn" type="submit">Conferma Pagamento</button>
+      </form>
+    {% endif %}
+  </div>
+</body>
 </html>
