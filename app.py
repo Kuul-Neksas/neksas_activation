@@ -362,7 +362,7 @@ def simulate_pay():
         return render_template("simulate.html",
             psp=psp_name, amount=amount, user_id=user_id,
             business=business, desc=desc,
-            error=str(e)
+            error="Errore interno: " + str(e)
         ), 500
 
 @app.route("/payment-return")
