@@ -1,5 +1,6 @@
 import os
 from uuid import uuid4
+from uuid import UUID
 from functools import wraps
 
 import stripe
@@ -306,13 +307,21 @@ def simulate_pay():
 
     # POST: conferma pagamento simulato
     form = request.form
-    user_id = form.get("user_id")
+    try:
+        user_id = str(UUID(form.get("user_id")))
+        amount = float(form.get("amount"))
+    except Exception:
+        return render_template("simulate.html",
+            psp=form.get("psp_name"), amount=form.get("amount"),
+            user_id=form.get("user_id"), business=form.get("business"),
+            desc=form.get("desc"),
+            error="Parametri non validi"
+        ), 400
+
     psp_name = form.get("psp_name")
-    amount = form.get("amount")
     desc = form.get("desc")
     business = form.get("business")
 
-    # Validazione base
     if not user_id or not psp_name or not amount:
         return render_template("simulate.html",
             psp=psp_name, amount=amount, user_id=user_id,
