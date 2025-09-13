@@ -319,14 +319,20 @@
 
         currentPaymentLink = url;
 
-        // QR + Link (entrambi stesso URL)
         const qrContainer = document.getElementById("qr-container");
-        qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
-          <canvas id="qr"></canvas>
-          <p><a href="${url}" target="_blank">${url}</a></p>`;
-        QRCode.toCanvas(document.getElementById("qr"), url);
 
-        // show icons
+        if (psp.circuit_name.toLowerCase() === "stripe" || psp.circuit_name.toLowerCase() === "paypal") {
+          // QR + link visibile per PSP reali
+          qrContainer.innerHTML = `<p>Scansiona per pagare con ${psp.circuit_name}:</p>
+            <canvas id="qr"></canvas>
+            <p><a href="${url}" target="_blank">${url}</a></p>`;
+          QRCode.toCanvas(document.getElementById("qr"), url);
+        } else {
+          // solo scritta "Vai al pagamento" per PSP simulati
+          qrContainer.innerHTML = `<p>Pagamento simulato con ${psp.circuit_name}:</p>
+            <p><a href="${url}" target="_blank">➡ Vai al pagamento</a></p>`;
+        }
+
         document.getElementById("share-icons").style.display = "block";
 
         // registra transazione solo PSP simulati
@@ -338,7 +344,6 @@
             currency: psp.currency,
             created_at: new Date().toISOString()
           }]);
-          // clear fields AFTER simulated transaction
           document.getElementById("description").value = "";
           document.getElementById("amount").value = "";
         }
@@ -368,6 +373,7 @@
   </script>
 </body>
 </html>
+
 
 
 
