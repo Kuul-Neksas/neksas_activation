@@ -307,24 +307,38 @@ def create_paypal_order():
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
     try:
-        psp_name = request.args.get("psp") or request.form.get("psp_name")
-        amount = request.args.get("amount") or request.form.get("amount")
-        user_id = request.args.get("user_id") or request.form.get("user_id")
-        desc = request.args.get("desc") or request.form.get("desc")
-        business = request.args.get("business") or request.form.get("business")
+        # Recupero parametri da GET o POST
+        psp_name = request.values.get("psp") or request.values.get("psp_name")
+        amount_raw = request.values.get("amount")
+        user_id = request.values.get("user_id")
+        desc = request.values.get("desc") or ""
+        business = request.values.get("business") or ""
 
-        if not user_id or not psp_name:
-            return render_template(
-                "simulate-pay.html",
+        # Validazione parametri base
+        if not user_id or not psp_name or not amount_raw:
+            return render_template("simulate-pay.html",
                 psp=psp_name,
-                amount=amount,
+                amount=amount_raw,
                 user_id=user_id,
                 business=business,
                 desc=desc,
-                error="Parametro mancante (user_id o psp)"
+                error="Parametri mancanti: user_id, psp o amount"
             ), 400
 
-        # normalizziamo a lowercase per sicurezza
+        # Conversione amount
+        try:
+            amount = float(str(amount_raw).replace(",", "."))
+        except ValueError:
+            return render_template("simulate-pay.html",
+                psp=psp_name,
+                amount=amount_raw,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                error="Importo non valido"
+            ), 400
+
+        # Recupero PSP associato all'utente
         psp_row = db.session.execute(
             text("""
                 SELECT psp_id 
@@ -337,8 +351,7 @@ def simulate_pay():
         ).mappings().first()
 
         if not psp_row:
-            return render_template(
-                "simulate-pay.html",
+            return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
                 user_id=user_id,
@@ -349,11 +362,11 @@ def simulate_pay():
 
         psp_id = psp_row["psp_id"]
 
+        # Se POST: simulazione pagamento
         if request.method == "POST":
             card = request.form.get("card")
             if not card:
-                return render_template(
-                    "simulate-pay.html",
+                return render_template("simulate-pay.html",
                     psp=psp_name,
                     amount=amount,
                     user_id=user_id,
@@ -377,13 +390,12 @@ def simulate_pay():
                     "psp_id": psp_id,
                     "amount": amount,
                     "created_at": now,
-                    "desc": desc or ""
+                    "desc": desc
                 }
             )
             db.session.commit()
 
-            return render_template(
-                "simulate-pay.html",
+            return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
                 user_id=user_id,
@@ -393,8 +405,8 @@ def simulate_pay():
                 tx_id=tx_id
             )
 
-        return render_template(
-            "simulate-pay.html",
+        # GET: mostra form
+        return render_template("simulate-pay.html",
             psp=psp_name,
             amount=amount,
             user_id=user_id,
@@ -404,13 +416,12 @@ def simulate_pay():
 
     except Exception as e:
         db.session.rollback()
-        return render_template(
-            "simulate-pay.html",
-            psp=request.args.get("psp"),
-            amount=request.args.get("amount"),
-            user_id=request.args.get("user_id"),
-            business=request.args.get("business"),
-            desc=request.args.get("desc"),
+        return render_template("simulate-pay.html",
+            psp=request.values.get("psp"),
+            amount=request.values.get("amount"),
+            user_id=request.values.get("user_id"),
+            business=request.values.get("business"),
+            desc=request.values.get("desc"),
             error=f"Errore interno: {str(e)}"
         ), 500
 
