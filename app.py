@@ -387,18 +387,17 @@ def simulate_pay():
 
             db.session.execute(
                 text("""
-                    INSERT INTO user_transactions
-                        (id, user_id, psp_id, amount, currency, status, created_at, description)
-                    VALUES (:id, :user_id, :psp_id, :amount, 'EUR', 'success', :created_at, :desc)
-                """),
-                {
+                     INSERT INTO transactions
+                          (id, user_id, psp_id, amount, currency, created_at)
+                     VALUES (:id, :user_id, :psp_id, :amount, 'EUR', :created_at)
+                 """),
+             {
                     "id": tx_id,
                     "user_id": user_id.strip(),
                     "psp_id": psp_id,
                     "amount": amount,
-                    "created_at": now,
-                    "desc": desc
-                }
+                    "created_at": now
+              }
             )
             db.session.commit()
 
