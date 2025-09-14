@@ -357,8 +357,8 @@ def simulate_pay():
                 error="Numero carta richiesto"
             ), 400
 
-        # Riesegui la query per il PSP
         try:
+            # Riconnessione e query PSP
             psp_row = db.session.execute(
                 text("""
                     SELECT psp_id 
@@ -369,30 +369,18 @@ def simulate_pay():
                 """),
                 {"user_id": user_id.strip(), "psp_name": psp_name.strip()}
             ).mappings().first()
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return render_template("simulate-pay.html",
-                psp=psp_name,
-                amount=amount_raw,
-                user_id=user_id,
-                business=business,
-                desc=desc,
-                error="Errore di connessione al database"
-            ), 500
 
-        if not psp_row:
-            return render_template("simulate-pay.html",
-                psp=psp_name,
-                amount=amount_raw,
-                user_id=user_id,
-                business=business,
-                desc=desc,
-                error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
-            ), 404
+            if not psp_row:
+                return render_template("simulate-pay.html",
+                    psp=psp_name,
+                    amount=amount_raw,
+                    user_id=user_id,
+                    business=business,
+                    desc=desc,
+                    error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
+                ), 404
 
-        # Inserimento transazione
-        try:
+            # Inserimento transazione
             tx_id = str(uuid.uuid4())
             now = datetime.utcnow()
 
@@ -410,6 +398,7 @@ def simulate_pay():
                 }
             )
             db.session.commit()
+            db.session.close()
 
             return render_template("simulate-pay.html",
                 psp=psp_name,
@@ -420,8 +409,10 @@ def simulate_pay():
                 success=True,
                 tx_id=tx_id
             )
+
         except Exception as e:
             db.session.rollback()
+            db.session.close()
             import traceback
             traceback.print_exc()
             return render_template("simulate-pay.html",
@@ -430,7 +421,7 @@ def simulate_pay():
                 user_id=user_id,
                 business=business,
                 desc=desc,
-                error=f"Errore durante la registrazione: {str(e)}"
+                error="Errore di connessione al database"
             ), 500
 
     # GET: mostra form
@@ -441,6 +432,7 @@ def simulate_pay():
         business=business,
         desc=desc
     )
+
 
 @app.route("/payment-return")
 def payment_return():
