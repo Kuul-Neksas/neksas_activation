@@ -315,7 +315,7 @@ def simulate_pay():
 
         if not user_id or not psp_name:
             return render_template(
-                "simulate.html",
+                "simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
                 user_id=user_id,
@@ -338,7 +338,7 @@ def simulate_pay():
 
         if not psp_row:
             return render_template(
-                "simulate.html",
+                "simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
                 user_id=user_id,
@@ -353,7 +353,7 @@ def simulate_pay():
             card = request.form.get("card")
             if not card:
                 return render_template(
-                    "simulate.html",
+                    "simulate-pay.html",
                     psp=psp_name,
                     amount=amount,
                     user_id=user_id,
@@ -383,7 +383,7 @@ def simulate_pay():
             db.session.commit()
 
             return render_template(
-                "simulate.html",
+                "simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
                 user_id=user_id,
@@ -394,7 +394,7 @@ def simulate_pay():
             )
 
         return render_template(
-            "simulate.html",
+            "simulate-pay.html",
             psp=psp_name,
             amount=amount,
             user_id=user_id,
@@ -405,7 +405,7 @@ def simulate_pay():
     except Exception as e:
         db.session.rollback()
         return render_template(
-            "simulate.html",
+            "simulate-pay.html",
             psp=request.args.get("psp"),
             amount=request.args.get("amount"),
             user_id=request.args.get("user_id"),
