@@ -34,6 +34,7 @@
       </div>
     {% else %}
       <form method="post">
+        <!-- hidden fields per passare i valori -->
         <input type="hidden" name="user_id" value="{{ user_id }}">
         <input type="hidden" name="psp_name" value="{{ psp }}">
         <input type="hidden" name="amount" value="{{ amount }}">
@@ -49,3 +50,4 @@
   </div>
 </body>
 </html>
+
