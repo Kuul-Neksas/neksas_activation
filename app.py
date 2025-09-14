@@ -306,87 +306,112 @@ def create_paypal_order():
 
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
-    if request.method == "GET":
-        return render_template("simulate.html",
-            psp=request.args.get("psp"),
-            amount=request.args.get("amount"),
-            desc=request.args.get("desc"),
-            business=request.args.get("business"),
-            user_id=request.args.get("user_id", ""),
-            success=None,
-            error=None,
-            tx_id=None
-        )
-
-    # POST: conferma pagamento simulato
-    form = request.form
     try:
-        user_id = str(UUID(form.get("user_id")))
-        amount = float(form.get("amount"))
-    except Exception:
-        return render_template("simulate.html",
-            psp=form.get("psp_name"), amount=form.get("amount"),
-            user_id=form.get("user_id"), business=form.get("business"),
-            desc=form.get("desc"),
-            error="Parametri non validi"
-        ), 400
+        psp_name = request.args.get("psp") or request.form.get("psp_name")
+        amount = request.args.get("amount") or request.form.get("amount")
+        user_id = request.args.get("user_id") or request.form.get("user_id")
+        desc = request.args.get("desc") or request.form.get("desc")
+        business = request.args.get("business") or request.form.get("business")
 
-    psp_name = form.get("psp_name")
-    desc = form.get("desc")
-    business = form.get("business")
-
-    if not user_id or not psp_name or not amount:
-        return render_template("simulate.html",
-            psp=psp_name, amount=amount, user_id=user_id,
-            business=business, desc=desc,
-            error="Parametri mancanti"
-        ), 400
-
-    try:
-        # ✅ Recupera psp_id da user_psp join psp_conditions
-        psp_row = db.session.execute(
-            text("""
-                SELECT c.id AS psp_id
-                FROM user_psp u
-                JOIN psp_conditions c ON u.psp_name = c.psp_name
-                WHERE u.user_id = :user_id AND u.psp_name = :psp_name
-                LIMIT 1
-            """),
-            {"user_id": user_id, "psp_name": psp_name}
-        ).mappings().first()
-
-        psp_id = psp_row["psp_id"] if psp_row else None
-        if not psp_id:
-            return render_template("simulate.html",
-                psp=psp_name, amount=amount, user_id=user_id,
-                business=business, desc=desc,
-                error="PSP non abilitato per questo utente"
+        if not user_id or not psp_name:
+            return render_template(
+                "simulate.html",
+                psp=psp_name,
+                amount=amount,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                error="Parametro mancante (user_id o psp)"
             ), 400
 
-        # Inserisce transazione simulata
-        new_id = str(uuid4())
-        db.session.execute(
+        # normalizziamo a lowercase per sicurezza
+        psp_row = db.session.execute(
             text("""
-                INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
-                VALUES (:id, :uid, :psp, :am, 'EUR', NOW())
+                SELECT psp_id 
+                FROM user_psp_conditions
+                WHERE user_id = :user_id 
+                AND LOWER(circuit_name) = LOWER(:psp_name)
+                LIMIT 1
             """),
-            {"id": new_id, "uid": user_id, "psp": psp_id, "am": amount}
-        )
-        db.session.commit()
+            {"user_id": user_id.strip(), "psp_name": psp_name.strip()}
+        ).mappings().first()
 
-        return render_template("simulate.html",
-            psp=psp_name, amount=amount, user_id=user_id,
-            business=business, desc=desc,
-            success=True, tx_id=new_id
+        if not psp_row:
+            return render_template(
+                "simulate.html",
+                psp=psp_name,
+                amount=amount,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
+            ), 404
+
+        psp_id = psp_row["psp_id"]
+
+        if request.method == "POST":
+            card = request.form.get("card")
+            if not card:
+                return render_template(
+                    "simulate.html",
+                    psp=psp_name,
+                    amount=amount,
+                    user_id=user_id,
+                    business=business,
+                    desc=desc,
+                    error="Numero carta richiesto"
+                ), 400
+
+            tx_id = str(uuid.uuid4())
+            now = datetime.utcnow()
+
+            db.session.execute(
+                text("""
+                    INSERT INTO user_transactions
+                        (id, user_id, psp_id, amount, currency, status, created_at, description)
+                    VALUES (:id, :user_id, :psp_id, :amount, 'EUR', 'success', :created_at, :desc)
+                """),
+                {
+                    "id": tx_id,
+                    "user_id": user_id.strip(),
+                    "psp_id": psp_id,
+                    "amount": amount,
+                    "created_at": now,
+                    "desc": desc or ""
+                }
+            )
+            db.session.commit()
+
+            return render_template(
+                "simulate.html",
+                psp=psp_name,
+                amount=amount,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                success=True,
+                tx_id=tx_id
+            )
+
+        return render_template(
+            "simulate.html",
+            psp=psp_name,
+            amount=amount,
+            user_id=user_id,
+            business=business,
+            desc=desc
         )
 
     except Exception as e:
         db.session.rollback()
-        app.logger.exception("Errore durante la simulazione del pagamento")
-        return render_template("simulate.html",
-            psp=psp_name, amount=amount, user_id=user_id,
-            business=business, desc=desc,
-            error="Errore interno: " + str(e)
+        return render_template(
+            "simulate.html",
+            psp=request.args.get("psp"),
+            amount=request.args.get("amount"),
+            user_id=request.args.get("user_id"),
+            business=request.args.get("business"),
+            desc=request.args.get("desc"),
+            error=f"Errore interno: {str(e)}"
         ), 500
 
 @app.route("/payment-return")
