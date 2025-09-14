@@ -307,6 +307,13 @@ def create_paypal_order():
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
     try:
+        print("🧪 Parametri ricevuti:")
+        print("user_id:", repr(user_id))
+        print("psp_name:", repr(psp_name))
+        print("amount:", repr(amount))
+        print("desc:", repr(desc))
+        print("business:", repr(business))
+
         # Recupero parametri da GET o POST
         psp_name = request.values.get("psp") or request.values.get("psp_name")
         amount_raw = request.values.get("amount")
