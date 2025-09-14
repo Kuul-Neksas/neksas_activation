@@ -344,23 +344,6 @@ def simulate_pay():
             error="Importo non valido"
         ), 400
 
-    # Recupero PSP associato all'utente
-    try:
-        psp_row = db.session.execute(
-            text("""
-                SELECT psp_id 
-                FROM user_psp_conditions
-                WHERE user_id = :user_id 
-                AND LOWER(circuit_name) = LOWER(:psp_name)
-                LIMIT 1
-            """),
-            {"user_id": user_id.strip(), "psp_name": psp_name.strip()}
-        ).mappings().first()
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        psp_row = None
-
     # Se POST: simulazione pagamento
     if request.method == "POST":
         card = request.form.get("card")
@@ -374,6 +357,30 @@ def simulate_pay():
                 error="Numero carta richiesto"
             ), 400
 
+        # Riesegui la query per il PSP
+        try:
+            psp_row = db.session.execute(
+                text("""
+                    SELECT psp_id 
+                    FROM user_psp_conditions
+                    WHERE user_id = :user_id 
+                    AND LOWER(circuit_name) = LOWER(:psp_name)
+                    LIMIT 1
+                """),
+                {"user_id": user_id.strip(), "psp_name": psp_name.strip()}
+            ).mappings().first()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return render_template("simulate-pay.html",
+                psp=psp_name,
+                amount=amount_raw,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                error="Errore di connessione al database"
+            ), 500
+
         if not psp_row:
             return render_template("simulate-pay.html",
                 psp=psp_name,
@@ -384,6 +391,7 @@ def simulate_pay():
                 error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
             ), 404
 
+        # Inserimento transazione
         try:
             tx_id = str(uuid.uuid4())
             now = datetime.utcnow()
@@ -425,16 +433,14 @@ def simulate_pay():
                 error=f"Errore durante la registrazione: {str(e)}"
             ), 500
 
-    # GET: mostra form (anche se psp_row è None)
+    # GET: mostra form
     return render_template("simulate-pay.html",
         psp=psp_name,
         amount=amount_raw,
         user_id=user_id,
         business=business,
-        desc=desc,
-        psp_found=bool(psp_row)
+        desc=desc
     )
-
 
 @app.route("/payment-return")
 def payment_return():
