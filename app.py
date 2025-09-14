@@ -307,17 +307,17 @@ def create_paypal_order():
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
     try:
-       # Recupero parametri da GET o POST
+        # Recupero parametri da GET o POST
         psp_name = request.values.get("psp") or request.values.get("psp_name")
         amount_raw = request.values.get("amount")
         user_id = request.values.get("user_id")
         desc = request.values.get("desc") or ""
         business = request.values.get("business") or ""
- 
+
         print("🧪 Parametri ricevuti:")
         print("user_id:", repr(user_id))
         print("psp_name:", repr(psp_name))
-        print("amount:", repr(amount))
+        print("amount_raw:", repr(amount_raw))
         print("desc:", repr(desc))
         print("business:", repr(business))
 
@@ -360,7 +360,7 @@ def simulate_pay():
         if not psp_row:
             return render_template("simulate-pay.html",
                 psp=psp_name,
-                amount=amount,
+                amount=amount_raw,
                 user_id=user_id,
                 business=business,
                 desc=desc,
@@ -375,7 +375,7 @@ def simulate_pay():
             if not card:
                 return render_template("simulate-pay.html",
                     psp=psp_name,
-                    amount=amount,
+                    amount=amount_raw,
                     user_id=user_id,
                     business=business,
                     desc=desc,
@@ -387,17 +387,17 @@ def simulate_pay():
 
             db.session.execute(
                 text("""
-                     INSERT INTO transactions
-                          (id, user_id, psp_id, amount, currency, created_at)
-                     VALUES (:id, :user_id, :psp_id, :amount, 'EUR', :created_at)
-                 """),
-             {
+                    INSERT INTO transactions
+                        (id, user_id, psp_id, amount, currency, created_at)
+                    VALUES (:id, :user_id, :psp_id, :amount, 'EUR', :created_at)
+                """),
+                {
                     "id": tx_id,
                     "user_id": user_id.strip(),
                     "psp_id": psp_id,
                     "amount": amount,
                     "created_at": now
-              }
+                }
             )
             db.session.commit()
 
@@ -414,7 +414,7 @@ def simulate_pay():
         # GET: mostra form
         return render_template("simulate-pay.html",
             psp=psp_name,
-            amount=amount,
+            amount=amount_raw,
             user_id=user_id,
             business=business,
             desc=desc
@@ -422,6 +422,9 @@ def simulate_pay():
 
     except Exception as e:
         db.session.rollback()
+        import traceback
+        traceback.print_exc()
+
         return render_template("simulate-pay.html",
             psp=request.values.get("psp"),
             amount=request.values.get("amount"),
