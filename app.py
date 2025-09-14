@@ -1,6 +1,5 @@
 import os
-from uuid import uuid4
-from uuid import UUID
+from uuid import uuid4, UUID
 from functools import wraps
 
 import stripe
@@ -140,8 +139,21 @@ def create_transaction():
         if k not in data:
             return jsonify({"error": f"{k} mancante"}), 400
 
+    # ✅ Verifica che user_id + psp_id corrispondano a un PSP abilitato per l'utente
+    exists = db.session.execute(
+        text("""
+            SELECT 1 FROM user_psp u
+            JOIN psp_conditions c ON u.psp_name = c.psp_name
+            WHERE u.user_id = :uid AND c.id = :pid
+            LIMIT 1
+        """),
+        {"uid": data["user_id"], "pid": data["psp_id"]}
+    ).scalar()
+
+    if not exists:
+        return jsonify({"error": "PSP non abilitato per questo utente"}), 400
+
     tx_id = str(uuid4())
-    columns = ["id", "user_id", "psp_id", "amount", "currency"]
     params = {
         "id": tx_id,
         "user_id": data["user_id"],
@@ -150,11 +162,9 @@ def create_transaction():
         "currency": data.get("currency", "EUR")
     }
 
-    insert_cols = ", ".join(columns)
-    insert_placeholders = ", ".join(":" + c for c in columns)
-    sql = text(f"""
-        INSERT INTO transactions ({insert_cols}, created_at)
-        VALUES ({insert_placeholders}, NOW())
+    sql = text("""
+        INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
+        VALUES (:id, :user_id, :psp_id, :amount, :currency, NOW())
     """)
     try:
         db.session.execute(sql, params)
@@ -307,6 +317,7 @@ def simulate_pay():
             error=None,
             tx_id=None
         )
+
     # POST: conferma pagamento simulato
     form = request.form
     try:
@@ -332,11 +343,13 @@ def simulate_pay():
         ), 400
 
     try:
-        # Recupera psp_id da user_psp_conditions
+        # ✅ Recupera psp_id da user_psp join psp_conditions
         psp_row = db.session.execute(
             text("""
-                SELECT psp_id FROM user_psp_conditions
-                WHERE user_id = :user_id AND circuit_name = :psp_name
+                SELECT c.id AS psp_id
+                FROM user_psp u
+                JOIN psp_conditions c ON u.psp_name = c.psp_name
+                WHERE u.user_id = :user_id AND u.psp_name = :psp_name
                 LIMIT 1
             """),
             {"user_id": user_id, "psp_name": psp_name}
@@ -443,4 +456,5 @@ if __name__ == "__main__":
         except Exception:
             app.logger.exception("create_all failed (continuiamo)")
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
