@@ -10,16 +10,9 @@ from flask import Flask, jsonify, render_template, render_template_string, reque
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import and_, text
 
-from supabase import create_client
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
 
-# -----------------------
-# Inizializzazione Supabase
-# -----------------------
-SUPABASE_URL = os.environ.get("SUPABASE_URL") or Config.SUPABASE_URL
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or Config.SUPABASE_ANON_KEY
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # -----------------------
 # Inizializzazione app
@@ -391,8 +384,9 @@ def simulate_pay():
             ), 400
 
         try:
-            psp_res = supabase.table("user_psp_conditions").select("psp_id").eq("user_id", user_id).eq("circuit_name", psp_name).execute()
-            if not psp_res.data:
+            # Legge la condizione PSP direttamente dal DB
+            psp_condition = UserPSPCondition.query.filter_by(user_id=user_id, circuit_name=psp_name).first()
+            if not psp_condition:
                 return render_template("simulate-pay.html",
                     psp=psp_name,
                     amount=amount_raw,
@@ -402,18 +396,21 @@ def simulate_pay():
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
-            psp_id = psp_res.data[0]["psp_id"]
+            psp_id = psp_condition.psp_id
             tx_id = str(uuid.uuid4())
-            now = datetime.utcnow().isoformat()
+            now = datetime.utcnow()
 
-            supabase.table("transactions").insert({
-                "id": tx_id,
-                "user_id": user_id,
-                "psp_id": psp_id,
-                "amount": amount,
-                "currency": "EUR",
-                "created_at": now
-            }).execute()
+            # Inserisce la transazione direttamente nel DB
+            tx = Transaction(
+                id=tx_id,
+                user_id=user_id,
+                psp_id=psp_id,
+                amount=amount,
+                currency="EUR",
+                created_at=now
+            )
+            db.session.add(tx)
+            db.session.commit()
 
             return render_template("simulate-pay.html",
                 psp=psp_name,
@@ -437,6 +434,7 @@ def simulate_pay():
                 error=f"Errore interno: {str(e)}"
             ), 500
 
+    # GET: mostra la pagina con valori precompilati
     return render_template("simulate-pay.html",
         psp=psp_name,
         amount=amount_raw,
@@ -444,6 +442,7 @@ def simulate_pay():
         business=business,
         desc=desc
     )
+
 
 # -----------------------
 # Payment return
