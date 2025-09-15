@@ -11,6 +11,10 @@ from sqlalchemy import and_, text
 
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
+import socket
+import psycopg2
+from sqlalchemy import create_engine
+
 
 # -----------------------
 # Inizializzazione app
@@ -18,6 +22,39 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
+# Patch SQLAlchemy per fallback IPv4
+try:
+    engine = db.get_engine(app)
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+except Exception as e:
+    print("❌ Connessione DB fallita, provo fallback IPv4...")
+    new_uri = force_ipv4_db_uri(app.config["SQLALCHEMY_DATABASE_URI"])
+    app.config["SQLALCHEMY_DATABASE_URI"] = new_uri
+    db.init_app(app)
+
+# -----------------------
+# Fix connessione Supabase (fallback IPv6 -> IPv4)
+# -----------------------
+def force_ipv4_db_uri(uri: str) -> str:
+    """
+    Se la connessione IPv6 fallisce, risolve l'host in IPv4 e ritorna una nuova URI.
+    """
+    try:
+        # estrae host dalla URI (es: db.xxx.supabase.co)
+        from urllib.parse import urlparse
+        parsed = urlparse(uri)
+        host = parsed.hostname
+        ipv4_list = socket.getaddrinfo(host, None, socket.AF_INET)
+        if not ipv4_list:
+            return uri
+        ipv4 = ipv4_list[0][4][0]
+        new_uri = uri.replace(host, ipv4)
+        print(f"🔄 Fallback IPv4 forzato: {host} -> {ipv4}")
+        return new_uri
+    except Exception as e:
+        print("⚠️ impossibile forzare IPv4:", e)
+        return uri
 
 # Stripe init (se presente in config)
 STRIPE_KEY = app.config.get("STRIPE_SECRET_KEY")
