@@ -342,20 +342,21 @@ def create_paypal_order():
 # -----------------------
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
-    """
-    Pagina di simulazione pagamento (GET mostra form, POST registra transazione come 'completa' simulata).
-    Usa il template `simulate-pay.html` che deve trovarsi nella cartella templates.
-    """
-    # Recupero parametri da GET o POST (values unisce GET/POST)
+    # Recupero parametri
     psp_name = request.values.get("psp") or request.values.get("psp_name")
     amount_raw = request.values.get("amount")
     user_id = request.values.get("user_id")
     desc = request.values.get("desc") or ""
     business = request.values.get("business") or ""
 
-    app.logger.debug("🧪 simulate-pay params: %s %s %s", psp_name, amount_raw, user_id)
+    print("🧪 Parametri ricevuti:")
+    print("user_id:", repr(user_id))
+    print("psp_name:", repr(psp_name))
+    print("amount_raw:", repr(amount_raw))
+    print("desc:", repr(desc))
+    print("business:", repr(business))
 
-    # Validazione parametri base
+    # Validazione base
     if not user_id or not psp_name or not amount_raw:
         return render_template("simulate-pay.html",
             psp=psp_name,
@@ -379,7 +380,7 @@ def simulate_pay():
             error="Importo non valido"
         ), 400
 
-    # Se POST: simulazione pagamento -> inserisco transazione in DB
+    # Se POST: inserisci nuova transazione
     if request.method == "POST":
         card = request.form.get("card")
         if not card:
@@ -393,19 +394,9 @@ def simulate_pay():
             ), 400
 
         try:
-            # Recupera psp_id da user_psp_conditions per questo utente e circuito
-            psp_row = db.session.execute(
-                text("""
-                    SELECT psp_id 
-                    FROM user_psp_conditions
-                    WHERE user_id = :user_id 
-                    AND LOWER(circuit_name) = LOWER(:psp_name)
-                    LIMIT 1
-                """),
-                {"user_id": user_id.strip(), "psp_name": psp_name.strip()}
-            ).mappings().first()
-
-            if not psp_row:
+            # Recupera psp_id da Supabase
+            psp_res = supabase.table("user_psp_conditions").select("psp_id").eq("user_id", user_id).eq("circuit_name", psp_name).execute()
+            if not psp_res.data:
                 return render_template("simulate-pay.html",
                     psp=psp_name,
                     amount=amount_raw,
@@ -415,18 +406,21 @@ def simulate_pay():
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
-            # Inserimento transazione simulata (server DB gestisce created_at con NOW())
-            new_id = str(uuid4())
-            db.session.execute(
-                text("""
-                    INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
-                    VALUES (:id, :uid, :psp, :am, 'EUR', NOW())
-                """),
-                {"id": new_id, "uid": user_id.strip(), "psp": psp_row["psp_id"], "am": amount}
-            )
-            db.session.commit()
+            psp_id = psp_res.data[0]["psp_id"]
 
-            # Mostra la pagina con messaggio di successo e id transazione
+            # Inserisci nuova transazione
+            tx_id = str(uuid.uuid4())
+            now = datetime.utcnow().isoformat()
+
+            supabase.table("transactions").insert({
+                "id": tx_id,
+                "user_id": user_id,
+                "psp_id": psp_id,
+                "amount": amount,
+                "currency": "EUR",
+                "created_at": now
+            }).execute()
+
             return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
@@ -434,22 +428,22 @@ def simulate_pay():
                 business=business,
                 desc=desc,
                 success=True,
-                tx_id=new_id
+                tx_id=tx_id
             )
 
         except Exception as e:
-            db.session.rollback()
-            app.logger.exception("Errore durante la simulazione del pagamento")
+            import traceback
+            traceback.print_exc()
             return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount_raw,
                 user_id=user_id,
                 business=business,
                 desc=desc,
-                error="Errore interno: " + str(e)
+                error=f"Errore interno: {str(e)}"
             ), 500
 
-    # GET: mostra il form di simulazione
+    # GET: mostra form
     return render_template("simulate-pay.html",
         psp=psp_name,
         amount=amount_raw,
