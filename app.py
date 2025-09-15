@@ -367,42 +367,37 @@ def simulate_pay():
                 error="Numero carta richiesto"
             ), 400
 
-        # Recupero PSP ID dal DB
         try:
-            psp_obj = UserPSP.query.join(PSPCondition).filter(
-                UserPSP.user_id == user_id,
-                PSPCondition.psp_name == psp_name
-            ).first()
-            if not psp_obj:
-                return render_template("simulate-pay.html",
-                    psp=psp_name, amount=amount_raw, user_id=user_id,
-                    business=business, desc=desc,
-                    error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
-                ), 404
-
+            # Genera transaction ID
             tx_id = str(uuid.uuid4())
-            transaction = {
-                "id": tx_id,
-                "user_id": user_id,
-                "psp_id": str(psp_obj.psp_id),
-                "amount": amount,
-                "currency": "EUR",
-                "created_at": datetime.utcnow()
-            }
 
-            # Inserimento reale nel DB tramite SQLAlchemy
+            # Inserimento diretto nel DB
             db.session.execute(
                 text("""
                     INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
                     VALUES (:id, :user_id, :psp_id, :amount, :currency, :created_at)
                 """),
-                transaction
+                {
+                    "id": tx_id,
+                    "user_id": user_id,
+                    "psp_id": "dummy_psp_id",  # sostituire con ID corretto dal DB se necessario
+                    "amount": amount,
+                    "currency": "EUR",
+                    "created_at": datetime.utcnow()
+                }
             )
             db.session.commit()
 
+            # Risposta diretta alla pagina: pagamento simulato avvenuto
             return render_template("simulate-pay.html",
-                psp=psp_name, amount=amount, user_id=user_id,
-                business=business, desc=desc, success=True, tx_id=tx_id
+                psp=psp_name,
+                amount=amount,
+                user_id=user_id,
+                business=business,
+                desc=desc,
+                success=True,
+                tx_id=tx_id,
+                message="Pagamento simulato correttamente!"
             )
 
         except Exception as e:
