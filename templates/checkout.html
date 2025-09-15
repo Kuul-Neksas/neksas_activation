@@ -270,35 +270,38 @@
     }
 
     // Funzione Verifica Pagamento
-    async function verifyPayment() {
-      if (!lastTransactionId) return;
-      const statusBox = document.getElementById("payment-status");
-      statusBox.innerText = "⏳ Verifica in corso...";
-      statusBox.style.color = "blue";
+    async function verifyPayment(transactionId) {
+  const statusBox = document.getElementById("payment-status");
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("status")
-        .eq("id", lastTransactionId)
-        .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("status")
+      .eq("id", transactionId)
+      .maybeSingle();
 
-      if (error || !data) {
-        statusBox.innerText = "❌ Errore nella verifica della transazione.";
-        statusBox.style.color = "red";
-        return;
-      }
-
-      if (data.status === "success") {
-        statusBox.innerText = "✅ Pagamento completato!";
-        statusBox.style.color = "green";
-      } else if (data.status === "pending") {
-        statusBox.innerText = "⏳ Pagamento ancora in sospeso...";
-        statusBox.style.color = "blue";
-      } else {
-        statusBox.innerText = "❌ Pagamento fallito o annullato.";
-        statusBox.style.color = "red";
-      }
+    if (error) throw error;
+    if (!data) {
+      statusBox.innerText = "❌ Transazione non trovata.";
+      statusBox.style.color = "red";
+      return;
     }
+
+    if (data.status === "ok") {
+      statusBox.innerText = "✅ Pagamento completato con successo!";
+      statusBox.style.color = "green";
+    } else if (data.status === "failed") {
+      statusBox.innerText = "❌ Pagamento fallito.";
+      statusBox.style.color = "red";
+    } else {
+      statusBox.innerText = "⏳ Pagamento ancora in sospeso…";
+      statusBox.style.color = "orange";
+    }
+  } catch (err) {
+    statusBox.innerText = "❌ Errore nella verifica: " + (err.message || err);
+    statusBox.style.color = "red";
+  }
+}
 
     document.getElementById("verify-payment").onclick = verifyPayment;
 
