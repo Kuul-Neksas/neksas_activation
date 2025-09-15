@@ -455,13 +455,6 @@ def simulate_pay():
 # -----------------------
 # Payment return (Stripe / PayPal)
 # -----------------------
-from supabase import create_client
-import os
-
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 @app.route("/payment-return")
 def payment_return():
     psp = request.args.get("psp")
