@@ -342,20 +342,10 @@ def simulate_pay():
     desc = request.values.get("desc") or ""
     business = request.values.get("business") or ""
 
-    print("🧪 Parametri ricevuti:")
-    print("user_id:", repr(user_id))
-    print("psp_name:", repr(psp_name))
-    print("amount_raw:", repr(amount_raw))
-    print("desc:", repr(desc))
-    print("business:", repr(business))
-
     if not user_id or not psp_name or not amount_raw:
         return render_template("simulate-pay.html",
-            psp=psp_name,
-            amount=amount_raw,
-            user_id=user_id,
-            business=business,
-            desc=desc,
+            psp=psp_name, amount=amount_raw, user_id=user_id,
+            business=business, desc=desc,
             error="Parametri mancanti: user_id, psp o amount"
         ), 400
 
@@ -363,11 +353,8 @@ def simulate_pay():
         amount = float(str(amount_raw).replace(",", "."))
     except ValueError:
         return render_template("simulate-pay.html",
-            psp=psp_name,
-            amount=amount_raw,
-            user_id=user_id,
-            business=business,
-            desc=desc,
+            psp=psp_name, amount=amount_raw, user_id=user_id,
+            business=business, desc=desc,
             error="Importo non valido"
         ), 400
 
@@ -375,73 +362,64 @@ def simulate_pay():
         card = request.form.get("card")
         if not card:
             return render_template("simulate-pay.html",
-                psp=psp_name,
-                amount=amount_raw,
-                user_id=user_id,
-                business=business,
-                desc=desc,
+                psp=psp_name, amount=amount_raw, user_id=user_id,
+                business=business, desc=desc,
                 error="Numero carta richiesto"
             ), 400
 
+        # Recupero PSP ID dal DB
         try:
-            # Legge la condizione PSP direttamente dal DB
-            psp_condition = UserPSPCondition.query.filter_by(user_id=user_id, circuit_name=psp_name).first()
-            if not psp_condition:
+            psp_obj = UserPSP.query.join(PSPCondition).filter(
+                UserPSP.user_id == user_id,
+                PSPCondition.psp_name == psp_name
+            ).first()
+            if not psp_obj:
                 return render_template("simulate-pay.html",
-                    psp=psp_name,
-                    amount=amount_raw,
-                    user_id=user_id,
-                    business=business,
-                    desc=desc,
+                    psp=psp_name, amount=amount_raw, user_id=user_id,
+                    business=business, desc=desc,
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
-            psp_id = psp_condition.psp_id
             tx_id = str(uuid.uuid4())
-            now = datetime.utcnow()
+            transaction = {
+                "id": tx_id,
+                "user_id": user_id,
+                "psp_id": str(psp_obj.psp_id),
+                "amount": amount,
+                "currency": "EUR",
+                "created_at": datetime.utcnow()
+            }
 
-            # Inserisce la transazione direttamente nel DB
-            tx = Transaction(
-                id=tx_id,
-                user_id=user_id,
-                psp_id=psp_id,
-                amount=amount,
-                currency="EUR",
-                created_at=now
+            # Inserimento reale nel DB tramite SQLAlchemy
+            db.session.execute(
+                text("""
+                    INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
+                    VALUES (:id, :user_id, :psp_id, :amount, :currency, :created_at)
+                """),
+                transaction
             )
-            db.session.add(tx)
             db.session.commit()
 
             return render_template("simulate-pay.html",
-                psp=psp_name,
-                amount=amount,
-                user_id=user_id,
-                business=business,
-                desc=desc,
-                success=True,
-                tx_id=tx_id
+                psp=psp_name, amount=amount, user_id=user_id,
+                business=business, desc=desc, success=True, tx_id=tx_id
             )
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            db.session.rollback()
+            import traceback; traceback.print_exc()
             return render_template("simulate-pay.html",
-                psp=psp_name,
-                amount=amount_raw,
-                user_id=user_id,
-                business=business,
-                desc=desc,
+                psp=psp_name, amount=amount_raw, user_id=user_id,
+                business=business, desc=desc,
                 error=f"Errore interno: {str(e)}"
             ), 500
 
-    # GET: mostra la pagina con valori precompilati
+    # GET
     return render_template("simulate-pay.html",
-        psp=psp_name,
-        amount=amount_raw,
-        user_id=user_id,
-        business=business,
-        desc=desc
+        psp=psp_name, amount=amount_raw, user_id=user_id,
+        business=business, desc=desc
     )
+
 
 
 # -----------------------
