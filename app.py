@@ -1,6 +1,7 @@
 import os
 from uuid import uuid4, UUID
 from functools import wraps
+from datetime import datetime
 
 import stripe
 import requests
@@ -133,13 +134,17 @@ def list_psps():
 # -----------------------
 @app.post("/api/create-transaction")
 def create_transaction():
+    """
+    Crea una transazione "pending" in DB.
+    Verifica che l'utente abbia effettivamente quel PSP abilitato.
+    """
     data = request.get_json(force=True) or {}
     required = ["user_id", "psp_id", "amount"]
     for k in required:
         if k not in data:
             return jsonify({"error": f"{k} mancante"}), 400
 
-    # ✅ Verifica che user_id + psp_id corrispondano a un PSP abilitato per l'utente
+    # Verifica che user_id + psp_id corrispondano a un PSP abilitato per l'utente (join su user_psp / psp_conditions)
     exists = db.session.execute(
         text("""
             SELECT 1 FROM user_psp u
@@ -204,10 +209,14 @@ def webhook(psp_name):
         return jsonify({"warning": "Unable to update (status column may be missing)"}), 200
 
 # -----------------------
-# Stripe / PayPal / simulate endpoints
+# Stripe / PayPal helpers & endpoints
 # -----------------------
 @app.post("/api/create-stripe-session")
 def create_stripe_session():
+    """
+    Crea una Stripe Checkout Session e restituisce la url.
+    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
+    """
     if not STRIPE_KEY:
         return jsonify({"error": "Stripe non configurato"}), 500
 
@@ -252,6 +261,10 @@ def create_stripe_session():
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
+    """
+    Crea un ordine PayPal e restituisce l'URL di approvazione.
+    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
+    """
     data = request.get_json(force=True) or {}
     amount = data.get("amount")
     if amount is None:
@@ -265,6 +278,7 @@ def create_paypal_order():
 
     env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
 
+    # get token
     try:
         token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
         token_res.raise_for_status()
@@ -273,6 +287,7 @@ def create_paypal_order():
         app.logger.exception("PayPal token error")
         return jsonify({"error": "paypal auth failed"}), 500
 
+    # prepare order payload; include tx_id as custom_id so we can recover it on return/capture
     tx_id = data.get("tx_id")
     purchase_unit = {
         "amount": {"currency_code": "EUR", "value": f"{float(amount):.2f}"},
@@ -304,21 +319,23 @@ def create_paypal_order():
         app.logger.exception("PayPal create order failed")
         return jsonify({"error": "paypal order create failed"}), 500
 
+# -----------------------
+# Pagina di simulazione pagamento
+# -----------------------
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
-    # Recupero parametri da GET o POST
+    """
+    Pagina di simulazione pagamento (GET mostra form, POST registra transazione come 'completa' simulata).
+    Usa il template `simulate-pay.html` che deve trovarsi nella cartella templates.
+    """
+    # Recupero parametri da GET o POST (values unisce GET/POST)
     psp_name = request.values.get("psp") or request.values.get("psp_name")
     amount_raw = request.values.get("amount")
     user_id = request.values.get("user_id")
     desc = request.values.get("desc") or ""
     business = request.values.get("business") or ""
 
-    print("🧪 Parametri ricevuti:")
-    print("user_id:", repr(user_id))
-    print("psp_name:", repr(psp_name))
-    print("amount_raw:", repr(amount_raw))
-    print("desc:", repr(desc))
-    print("business:", repr(business))
+    app.logger.debug("🧪 simulate-pay params: %s %s %s", psp_name, amount_raw, user_id)
 
     # Validazione parametri base
     if not user_id or not psp_name or not amount_raw:
@@ -344,7 +361,7 @@ def simulate_pay():
             error="Importo non valido"
         ), 400
 
-    # Se POST: simulazione pagamento
+    # Se POST: simulazione pagamento -> inserisco transazione in DB
     if request.method == "POST":
         card = request.form.get("card")
         if not card:
@@ -358,7 +375,7 @@ def simulate_pay():
             ), 400
 
         try:
-            # Riconnessione e query PSP
+            # Recupera psp_id da user_psp_conditions per questo utente e circuito
             psp_row = db.session.execute(
                 text("""
                     SELECT psp_id 
@@ -380,26 +397,18 @@ def simulate_pay():
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
-            # Inserimento transazione
-            tx_id = str(uuid.uuid4())
-            now = datetime.utcnow()
-
+            # Inserimento transazione simulata (server DB gestisce created_at con NOW())
+            new_id = str(uuid4())
             db.session.execute(
                 text("""
                     INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
-                    VALUES (:id, :user_id, :psp_id, :amount, 'EUR', :created_at)
+                    VALUES (:id, :uid, :psp, :am, 'EUR', NOW())
                 """),
-                {
-                    "id": tx_id,
-                    "user_id": user_id.strip(),
-                    "psp_id": psp_row["psp_id"],
-                    "amount": amount,
-                    "created_at": now
-                }
+                {"id": new_id, "uid": user_id.strip(), "psp": psp_row["psp_id"], "am": amount}
             )
             db.session.commit()
-            db.session.close()
 
+            # Mostra la pagina con messaggio di successo e id transazione
             return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount,
@@ -407,24 +416,22 @@ def simulate_pay():
                 business=business,
                 desc=desc,
                 success=True,
-                tx_id=tx_id
+                tx_id=new_id
             )
 
         except Exception as e:
             db.session.rollback()
-            db.session.close()
-            import traceback
-            traceback.print_exc()
+            app.logger.exception("Errore durante la simulazione del pagamento")
             return render_template("simulate-pay.html",
                 psp=psp_name,
                 amount=amount_raw,
                 user_id=user_id,
                 business=business,
                 desc=desc,
-                error="Errore di connessione al database"
+                error="Errore interno: " + str(e)
             ), 500
 
-    # GET: mostra form
+    # GET: mostra il form di simulazione
     return render_template("simulate-pay.html",
         psp=psp_name,
         amount=amount_raw,
@@ -433,7 +440,9 @@ def simulate_pay():
         desc=desc
     )
 
-
+# -----------------------
+# Payment return (Stripe / PayPal)
+# -----------------------
 @app.route("/payment-return")
 def payment_return():
     psp = request.args.get("psp")
@@ -501,5 +510,6 @@ if __name__ == "__main__":
         except Exception:
             app.logger.exception("create_all failed (continuiamo)")
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
 
