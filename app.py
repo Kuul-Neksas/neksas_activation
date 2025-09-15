@@ -1,4 +1,4 @@
-import os 
+import os
 import uuid
 from datetime import datetime
 from uuid import uuid4, UUID
@@ -10,7 +10,7 @@ from flask import Flask, jsonify, render_template, render_template_string, reque
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import and_, text
 
-from supabase import create_client  # ⬅ Correzione: import Supabase
+from supabase import create_client
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
 
@@ -32,7 +32,6 @@ db.init_app(app)
 # Fix connessione Supabase (fallback IPv6 -> IPv4)
 # -----------------------
 def force_ipv4_db_uri(uri: str) -> str:
-    """Se l'host è .supabase.co forza connessione su IPv4"""
     if not uri:
         return uri
     if "supabase.co" in uri and "?" not in uri:
@@ -44,11 +43,6 @@ if patched_uri != app.config.get("SQLALCHEMY_DATABASE_URI"):
     print("🔧 Patch DB URI per IPv4:", patched_uri)
     app.config["SQLALCHEMY_DATABASE_URI"] = patched_uri
 
-# Stripe init (se presente in config)
-STRIPE_KEY = app.config.get("STRIPE_SECRET_KEY")
-if STRIPE_KEY:
-    stripe.api_key = STRIPE_KEY
-
 # Log DB uri utile per debug
 print(f"🔧 SQLALCHEMY_DATABASE_URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
 
@@ -59,7 +53,6 @@ CIRCUITS = ['Visa', 'Mastercard', 'Amex', 'Diners']
 # Helper DB / util
 # -----------------------
 def table_has_column(table_name: str, column_name: str) -> bool:
-    """Controlla se la colonna esiste (info_schema)."""
     try:
         q = text("""
             SELECT 1 FROM information_schema.columns
@@ -73,7 +66,6 @@ def table_has_column(table_name: str, column_name: str) -> bool:
         return False
 
 def update_transaction_status(tx_id: str, new_status: str):
-    """Aggiorna lo stato di una transazione se la colonna esiste."""
     if not table_has_column("transactions", "status"):
         app.logger.warning("La tabella transactions non ha colonna 'status' -> skip update")
         return False
@@ -90,7 +82,7 @@ def update_transaction_status(tx_id: str, new_status: str):
         return False
 
 # -----------------------
-# Pagine pubbliche (render templates)
+# Pagine pubbliche
 # -----------------------
 @app.route('/')
 @app.route('/activate')
@@ -129,10 +121,8 @@ def checkout_page():
 def dashboard():
     email = request.args.get("email", "").strip().lower()
     print(f"📩 Email ricevuta: {email}")
-
     if not email:
         return "Email mancante", 400
-
     return render_template(
         "dashboard.html",
         email=email,
@@ -229,14 +219,30 @@ def webhook(psp_name):
         return jsonify({"warning": "Unable to update (status column may be missing)"}), 200
 
 # -----------------------
-# Stripe / PayPal helpers & endpoints
+# Stripe / PayPal helpers
 # -----------------------
+def get_user_psp_keys(user_id, psp_name):
+    """Restituisce tuple (public_key, secret_key) da DB per Stripe o PayPal."""
+    record = db.session.execute(
+        text("SELECT api_key_public, api_key_secret FROM user_psp WHERE user_id=:uid AND psp_name=:psp"),
+        {"uid": user_id, "psp": psp_name}
+    ).mappings().first()
+    if record:
+        return record["api_key_public"], record["api_key_secret"]
+    return None, None
+
 @app.post("/api/create-stripe-session")
 def create_stripe_session():
-    if not STRIPE_KEY:
-        return jsonify({"error": "Stripe non configurato"}), 500
-
     data = request.get_json(force=True) or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id richiesto"}), 400
+
+    public_key, secret_key = get_user_psp_keys(user_id, "stripe")
+    if not secret_key:
+        return jsonify({"error": "Stripe non configurato per questo utente"}), 500
+
+    stripe.api_key = secret_key
     amount = data.get("amount")
     if amount is None:
         return jsonify({"error": "amount richiesto"}), 400
@@ -278,20 +284,23 @@ def create_stripe_session():
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
     data = request.get_json(force=True) or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id richiesto"}), 400
+
+    public_key, secret_key = get_user_psp_keys(user_id, "paypal")
+    if not secret_key:
+        return jsonify({"error": "PayPal non configurato per questo utente"}), 500
+
     amount = data.get("amount")
     if amount is None:
         return jsonify({"error": "amount richiesto"}), 400
 
-    client_id = app.config.get("PAYPAL_CLIENT_ID")
-    secret = app.config.get("PAYPAL_SECRET")
     mode = app.config.get("PAYPAL_MODE", "sandbox")
-    if not client_id or not secret:
-        return jsonify({"error": "PayPal non configurato"}), 500
-
     env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
 
     try:
-        token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
+        token_res = requests.post(f"{env}/v1/oauth2/token", auth=(public_key, secret_key), data={"grant_type": "client_credentials"}, timeout=10)
         token_res.raise_for_status()
         access_token = token_res.json().get("access_token")
     except Exception as e:
@@ -330,7 +339,7 @@ def create_paypal_order():
         return jsonify({"error": "paypal order create failed"}), 500
 
 # -----------------------
-# Pagina di simulazione pagamento
+# Pagina simulate-pay
 # -----------------------
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
@@ -437,7 +446,7 @@ def simulate_pay():
     )
 
 # -----------------------
-# Payment return (Stripe / PayPal)
+# Payment return
 # -----------------------
 @app.route("/payment-return")
 def payment_return():
@@ -468,10 +477,18 @@ def payment_return():
         if not order_id:
             return "token/order id mancante", 400
 
-        client_id = app.config.get("PAYPAL_CLIENT_ID")
-        secret = app.config.get("PAYPAL_SECRET")
+        # Recupero user_id dal DB se necessario, qui si potrebbe estendere
+        # Per ora usiamo le credenziali globali dal DB se esistono
+
+        # Qui potremmo mappare user_id in base all'ordine
+        # lasciamo logica simile a prima
+
         mode = app.config.get("PAYPAL_MODE", "sandbox")
         env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
+        # Recupero credenziali da DB?
+        # Per ora useremo credenziali globali di default (se necessarie modificare)
+        client_id = Config.PAYPAL_CLIENT_ID
+        secret = Config.PAYPAL_SECRET
         try:
             token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
             token_res.raise_for_status()
@@ -506,6 +523,8 @@ if __name__ == "__main__":
         except Exception:
             app.logger.exception("create_all failed (continuiamo)")
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+
 
 
 
