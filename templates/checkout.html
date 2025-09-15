@@ -190,94 +190,102 @@
     }
 
     async function handlePayment(psp, amount, description, business, userId) {
-      try {
-        const statusBox = document.getElementById("payment-status");
-        statusBox.innerText = "";
-        statusBox.style.color = "green";
+  try {
+    const statusBox = document.getElementById("payment-status");
+    statusBox.innerText = "";
+    statusBox.style.color = "green";
 
-        let url;
+    let url;
 
-        if (psp.circuit_name.toLowerCase() === "stripe") {
-          const r = await fetch("/create-stripe-session", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business: business})
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || "Errore Stripe");
-          url = j.url;
+    if (psp.circuit_name.toLowerCase() === "stripe") {
+      const r = await fetch("/create-stripe-session", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({amount, description, user_id: userId, business: business})
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Errore Stripe");
+      url = j.url;
 
-        } else if (psp.circuit_name.toLowerCase() === "paypal") {
-          const r = await fetch("/create-paypal-order", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business: business})
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || "Errore PayPal");
-          url = j.url;
+    } else if (psp.circuit_name.toLowerCase() === "paypal") {
+      const r = await fetch("/create-paypal-order", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({amount, description, user_id: userId, business: business})
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Errore PayPal");
+      url = j.url;
 
-        } else {
-          url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}`;
-        }
-
-        const absoluteUrl = new URL(url, window.location.origin).href;
-        currentPaymentLink = absoluteUrl;
-
-        const qrContainer = document.getElementById("qr-container");
-        qrContainer.innerHTML = `
-          <p>Scansiona per pagare con ${psp.circuit_name}:</p>
-          <canvas id="qr"></canvas>
-          <p><a class="payment-hidden" id="payment-hidden" href="${absoluteUrl}" target="_blank">Vai al pagamento</a></p>
-        `;
-        QRCode.toCanvas(document.getElementById("qr"), absoluteUrl);
-
-        document.getElementById("share-icons").style.display = "block";
-
-        if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
-          const insertPayload = {
-            user_id: userId,
-            psp_id: psp.psp_id || psp.id,
-            amount,
-            currency: psp.currency || "EUR",
-            status: "pending",
-            created_at: new Date().toISOString()
-          };
-
-          const { data, error } = await supabase
-            .from("transactions")
-            .insert([ insertPayload ])
-            .select("id")
-            .single();
-
-          if (error) {
-            console.error("Errore insert transactions:", error);
-            statusBox.innerText = "❌ Errore registrazione transazione: " + (error.message || JSON.stringify(error));
-            statusBox.style.color = "red";
-            return;
-          }
-
-          lastTransactionId = data.id;
-          document.getElementById("verify-payment").style.display = "inline-block";
-        }
-
-      } catch (err) {
-        console.error("payment error", err);
-        const statusBox = document.getElementById("payment-status");
-        statusBox.innerText = "❌ Errore nella generazione del pagamento: " + (err.message || err);
-        statusBox.style.color = "red";
-      }
+    } else {
+      url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}`;
     }
 
-    // Funzione Verifica Pagamento
-    async function verifyPayment(transactionId) {
+    const absoluteUrl = new URL(url, window.location.origin).href;
+    currentPaymentLink = absoluteUrl;
+
+    const qrContainer = document.getElementById("qr-container");
+    qrContainer.innerHTML = `
+      <p>Scansiona per pagare con ${psp.circuit_name}:</p>
+      <canvas id="qr"></canvas>
+      <p><a class="payment-hidden" id="payment-hidden" href="${absoluteUrl}" target="_blank">Vai al pagamento</a></p>
+    `;
+    QRCode.toCanvas(document.getElementById("qr"), absoluteUrl);
+
+    document.getElementById("share-icons").style.display = "block";
+
+    // Inserimento transazione per PSP simulati
+    if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
+      const insertPayload = {
+        user_id: userId,
+        psp_id: psp.psp_id || psp.id,
+        amount,
+        currency: psp.currency || "EUR",
+        status: "pending",
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([ insertPayload ])
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error("Errore insert transactions:", error);
+        statusBox.innerText = "❌ Errore registrazione transazione: " + (error.message || JSON.stringify(error));
+        statusBox.style.color = "red";
+        return;
+      }
+
+      // Salva ID per verifica
+      lastTransactionId = data.id;
+      document.getElementById("verify-payment").style.display = "inline-block";
+    }
+
+  } catch (err) {
+    console.error("payment error", err);
+    const statusBox = document.getElementById("payment-status");
+    statusBox.innerText = "❌ Errore nella generazione del pagamento: " + (err.message || err);
+    statusBox.style.color = "red";
+  }
+}
+
+// Funzione Verifica Pagamento
+async function verifyPayment() {
   const statusBox = document.getElementById("payment-status");
+
+  if (!lastTransactionId) {
+    statusBox.innerText = "❌ Nessuna transazione da verificare";
+    statusBox.style.color = "red";
+    return;
+  }
 
   try {
     const { data, error } = await supabase
       .from("transactions")
       .select("status")
-      .eq("id", transactionId)
+      .eq("id", lastTransactionId)
       .maybeSingle();
 
     if (error) throw error;
@@ -303,7 +311,7 @@
   }
 }
 
-    document.getElementById("verify-payment").onclick = verifyPayment;
+document.getElementById("verify-payment").onclick = verifyPayment;
 
     window.shareViaEmail = function () {
       const subject = encodeURIComponent("Pagamento Neksəs");
