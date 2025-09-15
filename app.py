@@ -1,4 +1,4 @@
-import os
+import os 
 import uuid
 from datetime import datetime
 from uuid import uuid4, UUID
@@ -10,8 +10,16 @@ from flask import Flask, jsonify, render_template, render_template_string, reque
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import and_, text
 
+from supabase import create_client  # ⬅ Correzione: import Supabase
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
+
+# -----------------------
+# Inizializzazione Supabase
+# -----------------------
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or Config.SUPABASE_URL
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or Config.SUPABASE_ANON_KEY
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # -----------------------
 # Inizializzazione app
@@ -31,7 +39,6 @@ def force_ipv4_db_uri(uri: str) -> str:
         return uri + "?sslmode=require&target_session_attrs=read-write&options=-c%20inet_family=inet"
     return uri
 
-# Patch SQLALCHEMY_DATABASE_URI
 patched_uri = force_ipv4_db_uri(app.config.get("SQLALCHEMY_DATABASE_URI"))
 if patched_uri != app.config.get("SQLALCHEMY_DATABASE_URI"):
     print("🔧 Patch DB URI per IPv4:", patched_uri)
@@ -152,17 +159,12 @@ def list_psps():
 # -----------------------
 @app.post("/api/create-transaction")
 def create_transaction():
-    """
-    Crea una transazione "pending" in DB.
-    Verifica che l'utente abbia effettivamente quel PSP abilitato.
-    """
     data = request.get_json(force=True) or {}
     required = ["user_id", "psp_id", "amount"]
     for k in required:
         if k not in data:
             return jsonify({"error": f"{k} mancante"}), 400
 
-    # Verifica che user_id + psp_id corrispondano a un PSP abilitato per l'utente (join su user_psp / psp_conditions)
     exists = db.session.execute(
         text("""
             SELECT 1 FROM user_psp u
@@ -231,10 +233,6 @@ def webhook(psp_name):
 # -----------------------
 @app.post("/api/create-stripe-session")
 def create_stripe_session():
-    """
-    Crea una Stripe Checkout Session e restituisce la url.
-    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
-    """
     if not STRIPE_KEY:
         return jsonify({"error": "Stripe non configurato"}), 500
 
@@ -279,10 +277,6 @@ def create_stripe_session():
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
-    """
-    Crea un ordine PayPal e restituisce l'URL di approvazione.
-    Body JSON: { amount, description?, user_id?, business?, psp_id?, tx_id? }
-    """
     data = request.get_json(force=True) or {}
     amount = data.get("amount")
     if amount is None:
@@ -296,7 +290,6 @@ def create_paypal_order():
 
     env = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
 
-    # get token
     try:
         token_res = requests.post(f"{env}/v1/oauth2/token", auth=(client_id, secret), data={"grant_type": "client_credentials"}, timeout=10)
         token_res.raise_for_status()
@@ -305,7 +298,6 @@ def create_paypal_order():
         app.logger.exception("PayPal token error")
         return jsonify({"error": "paypal auth failed"}), 500
 
-    # prepare order payload; include tx_id as custom_id so we can recover it on return/capture
     tx_id = data.get("tx_id")
     purchase_unit = {
         "amount": {"currency_code": "EUR", "value": f"{float(amount):.2f}"},
@@ -342,7 +334,6 @@ def create_paypal_order():
 # -----------------------
 @app.route("/simulate-pay", methods=["GET", "POST"])
 def simulate_pay():
-    # Recupero parametri
     psp_name = request.values.get("psp") or request.values.get("psp_name")
     amount_raw = request.values.get("amount")
     user_id = request.values.get("user_id")
@@ -356,7 +347,6 @@ def simulate_pay():
     print("desc:", repr(desc))
     print("business:", repr(business))
 
-    # Validazione base
     if not user_id or not psp_name or not amount_raw:
         return render_template("simulate-pay.html",
             psp=psp_name,
@@ -367,7 +357,6 @@ def simulate_pay():
             error="Parametri mancanti: user_id, psp o amount"
         ), 400
 
-    # Conversione amount
     try:
         amount = float(str(amount_raw).replace(",", "."))
     except ValueError:
@@ -380,7 +369,6 @@ def simulate_pay():
             error="Importo non valido"
         ), 400
 
-    # Se POST: inserisci nuova transazione
     if request.method == "POST":
         card = request.form.get("card")
         if not card:
@@ -394,7 +382,6 @@ def simulate_pay():
             ), 400
 
         try:
-            # Recupera psp_id da Supabase
             psp_res = supabase.table("user_psp_conditions").select("psp_id").eq("user_id", user_id).eq("circuit_name", psp_name).execute()
             if not psp_res.data:
                 return render_template("simulate-pay.html",
@@ -407,8 +394,6 @@ def simulate_pay():
                 ), 404
 
             psp_id = psp_res.data[0]["psp_id"]
-
-            # Inserisci nuova transazione
             tx_id = str(uuid.uuid4())
             now = datetime.utcnow().isoformat()
 
@@ -443,7 +428,6 @@ def simulate_pay():
                 error=f"Errore interno: {str(e)}"
             ), 500
 
-    # GET: mostra form
     return render_template("simulate-pay.html",
         psp=psp_name,
         amount=amount_raw,
@@ -474,7 +458,7 @@ def payment_return():
                     update_transaction_status(tx_id, "completed")
                 return render_template_string("<h2>Pagamento completato (Stripe)</h2><p>Grazie.</p>")
             else:
-                return render_template_string("<h2>Pagamento non completato (Stripe)</h2><p>Stato: {{st}}</p>", st=status)
+                return render_template_string("<h2>Pagamento non completato (Stripe)</h2><p>Stato: {{ status }}</p>", status=status)
         except Exception:
             app.logger.exception("Errore verifica stripe session")
             return render_template_string("<h2>Errore verifica Stripe</h2>"), 500
@@ -522,5 +506,7 @@ if __name__ == "__main__":
         except Exception:
             app.logger.exception("create_all failed (continuiamo)")
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+
 
 
