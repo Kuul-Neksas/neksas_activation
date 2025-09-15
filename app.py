@@ -418,11 +418,7 @@ def simulate_pay():
 
         try:
             # Recupera il PSP abilitato per l'utente
-            user_psp = UserPSP.query.join(PSPCondition).filter(
-                UserPSP.user_id == user_id,
-                PSPCondition.psp_name == psp_name
-            ).first()
-
+            user_psp = UserPSP.query.filter_by(user_id=user_id, psp_name=psp_name).first()
             if not user_psp:
                 return render_template("simulate-pay.html",
                     psp=psp_name,
@@ -433,32 +429,34 @@ def simulate_pay():
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
+            from models import Transaction  # Assicurati di importare il modello Transaction corretto
+
             # Se non c'è tx_id, creiamo nuova transazione
             if not tx_id:
-                tx = UserPSPCondition(
-                       id=str(uuid4()),
-                       user_id=user_id,
-                       psp_id=user_psp.psp_id,
-                       amount=amount,
-                       currency="EUR",
-                       created_at=datetime.utcnow(),
-                       status="ok"
-                 )
+                tx = Transaction(
+                    id=str(uuid4()),
+                    user_id=user_id,
+                    psp_id=user_psp.id,
+                    amount=amount,
+                    currency="EUR",
+                    created_at=datetime.utcnow(),
+                    status="ok"
+                )
                 db.session.add(tx)
                 db.session.commit()
                 tx_id = tx.id
             else:
-                # Se tx_id già esiste, facciamo update dello status a ok
-                tx = UserPSPCondition.query.get(tx_id)
+                # Se tx_id già esiste, aggiorniamo lo status a ok
+                tx = Transaction.query.get(tx_id)
                 if tx:
                     tx.status = "ok"
                     db.session.commit()
                 else:
                     # fallback: se non esiste, creiamo nuova transazione
-                    tx = UserPSPCondition(
+                    tx = Transaction(
                         id=tx_id,
                         user_id=user_id,
-                        psp_id=user_psp.psp_id,
+                        psp_id=user_psp.id,
                         amount=amount,
                         currency="EUR",
                         created_at=datetime.utcnow(),
