@@ -188,96 +188,88 @@
     // MAIN: genera link/qr e (solo per simulazione) registra la transazione lato browser su Supabase.
     // Modifica richiesta: NON ripulire i campi finché la registrazione NON è confermata.
     async function handlePayment(psp, amount, description, business, userId) {
-      try {
-        // reset status
-        const statusBox = document.getElementById("payment-status");
-        statusBox.innerText = "";
-        statusBox.style.color = "green";
+  try {
+    // reset status
+    const statusBox = document.getElementById("payment-status");
+    statusBox.innerText = "";
+    statusBox.style.color = "green";
 
-        let url;
+    let url;
 
-        if (psp.circuit_name.toLowerCase() === "stripe") {
-          // route lasciata come nella tua versione originale
-          const r = await fetch("/create-stripe-session", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business: business})
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || "Errore Stripe");
-          url = j.url;
+    if (psp.circuit_name.toLowerCase() === "stripe") {
+      const r = await fetch("/create-stripe-session", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({amount, description, user_id: userId, business: business})
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Errore Stripe");
+      url = j.url;
 
-        } else if (psp.circuit_name.toLowerCase() === "paypal") {
-          const r = await fetch("/create-paypal-order", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({amount, description, user_id: userId, business: business})
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || "Errore PayPal");
-          url = j.url;
+    } else if (psp.circuit_name.toLowerCase() === "paypal") {
+      const r = await fetch("/create-paypal-order", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({amount, description, user_id: userId, business: business})
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Errore PayPal");
+      url = j.url;
 
-        } else {
-          // Simulazione: usiamo lo stesso pattern (link + QR)
-          url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}`;
-        }
-
-        // Convert relative links to absolute so QR / share work from mobile
-        const absoluteUrl = new URL(url, window.location.origin).href;
-        currentPaymentLink = absoluteUrl;
-
-        // QR + Link (entrambi stesso URL)
-        const qrContainer = document.getElementById("qr-container");
-        qrContainer.innerHTML = `
-          <p>Scansiona per pagare con ${psp.circuit_name}:</p>
-          <canvas id="qr"></canvas>
-          <p><a class="payment-hidden" id="payment-hidden" href="${absoluteUrl}" target="_blank">Vai al pagamento</a></p>
-        `;
-        QRCode.toCanvas(document.getElementById("qr"), absoluteUrl);
-
-        // show icons for sharing
-        document.getElementById("share-icons").style.display = "block";
-
-        // NON registrare transazione qui se pag con Stripe/PayPal reale: registrerai al payment-return/webhook.
-        if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
-          // record simulated transaction now — manteniamo il tuo flusso originale ma attendiamo l'esito
-          const insertPayload = {
-            user_id: userId,
-            psp_id: psp.psp_id || psp.id,
-            amount,
-            currency: psp.currency || "EUR",
-            created_at: new Date().toISOString()
-          };
-
-          // effettuiamo la insert e attendiamo l'esito: solo se ok puliamo i campi
-          const { data, error } = await supabase
-            .from("transactions")
-            .insert([ insertPayload ]);
-
-          if (error) {
-            console.error("Errore insert transactions:", error);
-            // non pulire i campi: mostra messaggio visibile
-            statusBox.innerText = "❌ Errore registrazione transazione: " + (error.message || JSON.stringify(error));
-            statusBox.style.color = "red";
-            return; // esci senza pulire
-          }
-
-          // insert ok -> mostra conferma e PULISCI i campi
-          statusBox.innerText = "✅ Pagamento simulato registrato con successo.";
-          statusBox.style.color = "green";
-          // solo ora puliamo i campi
-          document.getElementById("description").value = "";
-          document.getElementById("amount").value = "";
-        }
-
-      } catch (err) {
-        console.error("payment error", err);
-        // Mostriamo messaggio a video senza cancellare i campi
-        const statusBox = document.getElementById("payment-status");
-        statusBox.innerText = "❌ Errore nella generazione del pagamento: " + (err.message || err);
-        statusBox.style.color = "red";
-      }
+    } else {
+      // Simulazione: usiamo lo stesso pattern (link + QR)
+      url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}`;
     }
+
+    // Convert relative links to absolute so QR / share work from mobile
+    const absoluteUrl = new URL(url, window.location.origin).href;
+    currentPaymentLink = absoluteUrl;
+
+    // QR + Link (entrambi stesso URL)
+    const qrContainer = document.getElementById("qr-container");
+    qrContainer.innerHTML = `
+      <p>Scansiona per pagare con ${psp.circuit_name}:</p>
+      <canvas id="qr"></canvas>
+      <p><a class="payment-hidden" id="payment-hidden" href="${absoluteUrl}" target="_blank">Vai al pagamento</a></p>
+    `;
+    QRCode.toCanvas(document.getElementById("qr"), absoluteUrl);
+
+    // show icons for sharing
+    document.getElementById("share-icons").style.display = "block";
+
+    // NON registrare transazione qui se pag con Stripe/PayPal reale
+    if (psp.circuit_name.toLowerCase() !== "stripe" && psp.circuit_name.toLowerCase() !== "paypal") {
+      const insertPayload = {
+        user_id: userId,
+        psp_id: psp.psp_id || psp.id,
+        amount,
+        currency: psp.currency || "EUR",
+        created_at: new Date().toISOString()
+      };
+
+      // Insert in transactions
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([ insertPayload ]);
+
+      if (error) {
+        console.error("Errore insert transactions:", error);
+        statusBox.innerText = "❌ Errore registrazione transazione: " + (error.message || JSON.stringify(error));
+        statusBox.style.color = "red";
+        return;
+      }
+
+      // 🔹 Qui non mostriamo più il messaggio e NON puliamo i campi
+    }
+
+  } catch (err) {
+    console.error("payment error", err);
+    const statusBox = document.getElementById("payment-status");
+    statusBox.innerText = "❌ Errore nella generazione del pagamento: " + (err.message || err);
+    statusBox.style.color = "red";
+  }
+}
+
 
     // share icons functions
     window.shareViaEmail = function () {
