@@ -372,6 +372,7 @@ def simulate_pay():
     user_id = request.values.get("user_id")
     desc = request.values.get("desc") or ""
     business = request.values.get("business") or ""
+    tx_id = request.values.get("tx_id")  # riceviamo l'id transazione se già presente
 
     print("🧪 Parametri ricevuti:")
     print("user_id:", repr(user_id))
@@ -379,6 +380,7 @@ def simulate_pay():
     print("amount_raw:", repr(amount_raw))
     print("desc:", repr(desc))
     print("business:", repr(business))
+    print("tx_id:", repr(tx_id))
 
     if not user_id or not psp_name or not amount_raw:
         return render_template("simulate-pay.html",
@@ -415,7 +417,7 @@ def simulate_pay():
             ), 400
 
         try:
-            # Recupera il PSP abilitato per l'utente tramite ORM
+            # Recupera il PSP abilitato per l'utente
             user_psp = UserPSP.query.join(PSPCondition).filter(
                 UserPSP.user_id == user_id,
                 PSPCondition.psp_name == psp_name
@@ -431,19 +433,39 @@ def simulate_pay():
                     error=f"PSP '{psp_name}' non trovato per l'utente {user_id}"
                 ), 404
 
-            # Crea la transazione con ORM
-            tx = UserPSPCondition(
-                   id=str(uuid4()),
-                   user_id=user_id,
-                   psp_id=user_psp.psp_id,
-                   amount=amount,
-                   currency="EUR",
-                   created_at=datetime.utcnow(),
-                   status="ok"
-             )
-
-            db.session.add(tx)
-            db.session.commit()
+            # Se non c'è tx_id, creiamo nuova transazione
+            if not tx_id:
+                tx = UserPSPCondition(
+                       id=str(uuid4()),
+                       user_id=user_id,
+                       psp_id=user_psp.psp_id,
+                       amount=amount,
+                       currency="EUR",
+                       created_at=datetime.utcnow(),
+                       status="ok"
+                 )
+                db.session.add(tx)
+                db.session.commit()
+                tx_id = tx.id
+            else:
+                # Se tx_id già esiste, facciamo update dello status a ok
+                tx = UserPSPCondition.query.get(tx_id)
+                if tx:
+                    tx.status = "ok"
+                    db.session.commit()
+                else:
+                    # fallback: se non esiste, creiamo nuova transazione
+                    tx = UserPSPCondition(
+                        id=tx_id,
+                        user_id=user_id,
+                        psp_id=user_psp.psp_id,
+                        amount=amount,
+                        currency="EUR",
+                        created_at=datetime.utcnow(),
+                        status="ok"
+                    )
+                    db.session.add(tx)
+                    db.session.commit()
 
             return render_template("simulate-pay.html",
                 psp=psp_name,
@@ -452,11 +474,10 @@ def simulate_pay():
                 business=business,
                 desc=desc,
                 success=True,
-                tx_id=tx.id
+                tx_id=tx_id
             )
 
         except Exception as e:
-            # In caso di errore DB, logga ma mostra comunque il pagamento completato
             import traceback
             traceback.print_exc()
             return render_template("simulate-pay.html",
@@ -465,7 +486,7 @@ def simulate_pay():
                 user_id=user_id,
                 business=business,
                 desc=desc,
-                success=True,  # Forziamo successo anche in caso di errore DB
+                success=True,
                 tx_id=str(uuid4()),
                 warning=f"Errore interno DB catturato: {str(e)}"
             )
@@ -475,11 +496,9 @@ def simulate_pay():
         amount=amount_raw,
         user_id=user_id,
         business=business,
-        desc=desc
+        desc=desc,
+        tx_id=tx_id
     )
-
-
-
 
 # -----------------------
 # Payment return
