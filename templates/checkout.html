@@ -202,6 +202,7 @@
       </div>
 
       <div class="disclaimer">
+        <div id="payment-status" style="margin-top:20px; font-weight:bold; color:green; text-align:center;"></div>
         Proseguendo accetti le nostre condizioni. <br />
         <span class="highlight">I dati del pagamento non vengono salvati da Neksəs, ma solo dal PSP utilizzato.</span>
       </div>
@@ -319,7 +320,7 @@
       if (!r.ok) throw new Error(j.error || "Errore PayPal");
       url = j.url;
     } else {
-      // Simulazione: chiama la route simulate-pay e aspetta risposta
+      // --- SIMULAZIONE ---
       const query = new URLSearchParams({
         psp: psp.circuit_name,
         amount,
@@ -328,16 +329,20 @@
         user_id: userId
       });
       const r = await fetch(`/simulate-pay?${query.toString()}`, {method: "POST"});
-      const text = await r.text();
-      if (!r.ok) throw new Error("Errore simulazione pagamento");
-      // Mostra messaggio di avvenuto pagamento a video
-      alert("Pagamento simulato avvenuto ✅");
-      // Ora puoi svuotare i campi dopo conferma
+      const j = await r.json();
+
+      if (!r.ok || !j.success) throw new Error("Errore simulazione pagamento");
+
+      // Mostra conferma sulla pagina (NON alert)
+      document.getElementById("payment-status").innerText = "✅ Pagamento completato con successo!";
+
+      // Ora possiamo svuotare i campi
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
       return;
     }
 
+    // --- Per Stripe/PayPal: generazione QR + link ---
     const absoluteUrl = new URL(url, window.location.origin).href;
     currentPaymentLink = absoluteUrl;
 
@@ -352,10 +357,11 @@
 
   } catch (err) {
     console.error("payment error", err);
-    alert("Errore nella generazione del pagamento: " + (err.message||err));
+    document.getElementById("payment-status").innerText =
+      "❌ Errore: " + (err.message || err);
+    document.getElementById("payment-status").style.color = "red";
   }
 }
-
 
     // share icons functions
     window.shareViaEmail = function () {
