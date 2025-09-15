@@ -159,20 +159,38 @@ def create_transaction():
     ).scalar()
 
     if not exists:
-        return jsonify({"error": "PSP non abilitato per questo utente"}), 400
+        # Inserimento transazione fallita
+        tx_id = str(uuid4())
+        params = {
+            "id": tx_id,
+            "user_id": data["user_id"],
+            "psp_id": data["psp_id"],
+            "amount": data["amount"],
+            "currency": data.get("currency", "EUR"),
+            "status": "failed"
+        }
+        sql = text("""
+            INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at, status)
+            VALUES (:id, :user_id, :psp_id, :amount, :currency, NOW(), :status)
+        """)
+        db.session.execute(sql, params)
+        db.session.commit()
+        return jsonify({"error": "PSP non abilitato per questo utente", "transaction_id": tx_id}), 400
 
+    # Inserimento transazione riuscita
     tx_id = str(uuid4())
     params = {
         "id": tx_id,
         "user_id": data["user_id"],
         "psp_id": data["psp_id"],
         "amount": data["amount"],
-        "currency": data.get("currency", "EUR")
+        "currency": data.get("currency", "EUR"),
+        "status": "ok"
     }
 
     sql = text("""
-        INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at)
-        VALUES (:id, :user_id, :psp_id, :amount, :currency, NOW())
+        INSERT INTO transactions (id, user_id, psp_id, amount, currency, created_at, status)
+        VALUES (:id, :user_id, :psp_id, :amount, :currency, NOW(), :status)
     """)
     try:
         db.session.execute(sql, params)
@@ -181,7 +199,20 @@ def create_transaction():
     except Exception as e:
         db.session.rollback()
         app.logger.exception("Errore create_transaction")
-        return jsonify({"error": "Errore durante la creazione della transazione"}), 500
+
+        # Inserimento transazione fallita per errore interno
+        tx_id = str(uuid4())
+        fail_params = {
+            "id": tx_id,
+            "user_id": data["user_id"],
+            "psp_id": data["psp_id"],
+            "amount": data["amount"],
+            "currency": data.get("currency", "EUR"),
+            "status": "failed"
+        }
+        db.session.execute(sql, fail_params)
+        db.session.commit()
+
 
 @app.get("/api/transaction-status/<tx_id>")
 def transaction_status(tx_id):
@@ -402,13 +433,15 @@ def simulate_pay():
 
             # Crea la transazione con ORM
             tx = UserPSPCondition(
-                id=str(uuid4()),
-                user_id=user_id,
-                psp_id=user_psp.psp_id,
-                amount=amount,
-                currency="EUR",
-                created_at=datetime.utcnow()
-            )
+                   id=str(uuid4()),
+                   user_id=user_id,
+                   psp_id=user_psp.psp_id,
+                   amount=amount,
+                   currency="EUR",
+                   created_at=datetime.utcnow(),
+                   status="ok"
+             )
+
             db.session.add(tx)
             db.session.commit()
 
