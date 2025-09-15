@@ -207,8 +207,7 @@ async function handlePayment(psp, amount, description, business, userId) {
     lastTransactionId = data.id; // salvo l'id per la verifica
 
     // Genera link/QR come prima
-    const url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}&transaction_id=${data.id}`;
-    currentPaymentLink = new URL(url, window.location.origin).href;
+    const url = `/simulate-pay?psp=${encodeURIComponent(psp.circuit_name)}&amount=${encodeURIComponent(amount)}&desc=${encodeURIComponent(description)}&business=${encodeURIComponent(business)}&user_id=${encodeURIComponent(userId)}&tx_id=${encodeURIComponent(lastTransactionId)}`;
     document.getElementById("qr-container").innerHTML = `
       <p>Scansiona per pagare con ${psp.circuit_name}:</p>
       <canvas id="qr"></canvas>
