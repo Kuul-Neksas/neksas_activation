@@ -255,44 +255,49 @@ def get_user_psp_keys(user_id, psp_name):
         return record["api_key_public"], record["api_key_secret"]
     return None, None
 
+from flask import Flask, request, jsonify
 import stripe
-from flask import request, jsonify
 from supabase import create_client
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+app = Flask(__name__)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)  # QUI solo per connetterti al DB Supabase
 
 @app.route("/create-stripe-session", methods=["POST"])
 def create_stripe_session():
     data = request.json
     user_id = data.get("user_id")
-    amount = int(float(data.get("amount")) * 100)  # in centesimi
-    description = data.get("description", "")
+    amount = data.get("amount")
+    description = data.get("description")
 
-    # Recupera api_key_secret dall'utente
-    user_psp = supabase.table("user_psp_conditions").select("*").eq("user_id", user_id).eq("circuit_name","Stripe").maybe_single().execute()
-    if not user_psp.data:
-        return jsonify({"error": "Stripe non configurato"}), 400
+    # 1. Prendere le chiavi Stripe dal DB
+    res = supabase.table("user_psp_conditions").select("api_key_secret, api_key_public").eq("user_id", user_id).eq("circuit_name", "Stripe").maybe_single().execute()
+    stripe_keys = res.data
+    if not stripe_keys:
+        return jsonify({"error": "Chiavi Stripe non trovate"}), 400
 
-    stripe.api_key = user_psp.data.get("api_key_secret")
+    # 2. Impostare la chiave segreta dinamicamente
+    stripe.api_key = stripe_keys["api_key_secret"]
 
+    # 3. Creare la sessione di pagamento
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": description or "Pagamento"},
-                    "unit_amount": amount,
+                    "product_data": {"name": description},
+                    "unit_amount": int(float(amount) * 100),  # euro -> centesimi
                 },
                 "quantity": 1,
             }],
             mode="payment",
-            success_url=f"{request.host_url}checkout-success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{request.host_url}checkout-cancel",
+            success_url=f"{request.host_url}success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{request.host_url}cancel"
         )
         return jsonify({"url": session.url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.post("/api/create-paypal-order")
