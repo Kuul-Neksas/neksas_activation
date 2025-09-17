@@ -7,19 +7,30 @@ from functools import wraps
 import stripe
 import requests
 from flask import Flask, jsonify, render_template, render_template_string, request, redirect, url_for
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy import and_, text
 
 from models import db, User, Profile, PSPCondition, UserPSP, UserPSPCondition
 from config import Config
-
+from supabase import create_client
 
 # -----------------------
-# Inizializzazione app
+# App & DB
 # -----------------------
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
+
+# -----------------------
+# Supabase
+# -----------------------
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("SUPABASE_URL o SUPABASE_ANON_KEY non definiti nell'environment")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # -----------------------
 # Fix connessione Supabase (fallback IPv6 -> IPv4)
@@ -254,22 +265,6 @@ def get_user_psp_keys(user_id, psp_name):
     if record:
         return record["api_key_public"], record["api_key_secret"]
     return None, None
-
-import os
-from flask import Flask, request, jsonify
-import stripe
-from supabase import create_client
-
-app = Flask(__name__)
-
-# Leggi le variabili dall'environment di Render
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")  # chiave anonima
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("SUPABASE_URL o SUPABASE_ANON_KEY non definiti nell'environment")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route("/create-stripe-session", methods=["POST"])
 def create_stripe_session():
