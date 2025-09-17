@@ -255,15 +255,20 @@ def get_user_psp_keys(user_id, psp_name):
         return record["api_key_public"], record["api_key_secret"]
     return None, None
 
+import os
 from flask import Flask, request, jsonify
 import stripe
 from supabase import create_client
-import os
 
 app = Flask(__name__)
 
+# Leggi le variabili dall'environment di Render
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")  # chiave anonima
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("SUPABASE_URL o SUPABASE_ANON_KEY non definiti nell'environment")
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route("/create-stripe-session", methods=["POST"])
@@ -275,42 +280,39 @@ def create_stripe_session():
     business = data.get("business")
 
     if not user_id or not amount:
-        return jsonify({"error": "Parametri mancanti"}), 400
-
-    # Recupero chiave Stripe per l'utente (versione supabase-py 2.x)
-    resp = supabase.table("user_psp_conditions") \
-        .select("api_key_secret") \
-        .eq("user_id", user_id) \
-        .eq("circuit_name", "Stripe") \
-        .execute()
-
-    if resp.error or not resp.data or len(resp.data) == 0:
-        return jsonify({"error": "Chiavi Stripe non trovate per l'utente"}), 400
-
-    stripe_secret = resp.data[0]["api_key_secret"]
-
-    stripe.api_key = stripe_secret
+        return jsonify({"error": "user_id e amount sono obbligatori"}), 400
 
     try:
-        amount_cents = int(float(amount) * 100)
+        # Recupera la chiave segreta Stripe dal DB per l'utente
+        resp = supabase.from_("user_psp_conditions") \
+            .select("api_key_secret") \
+            .eq("user_id", user_id) \
+            .eq("circuit_name", "Stripe") \
+            .maybe_single()
 
+        if not resp or not resp.get("data") or not resp["data"].get("api_key_secret"):
+            return jsonify({"error": "Chiave Stripe non trovata per l'utente"}), 400
+
+        stripe_secret = resp["data"]["api_key_secret"]
+        stripe.api_key = stripe_secret
+
+        # Crea sessione Stripe Checkout
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
+            mode="payment",
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": description or "Pagamento Neksəs"},
-                    "unit_amount": amount_cents,
+                    "product_data": {
+                        "name": description or "Pagamento Neksəs",
+                        "metadata": {"business": business or "-"}
+                    },
+                    "unit_amount": int(float(amount) * 100),  # in centesimi
                 },
-                "quantity": 1,
+                "quantity": 1
             }],
-            mode="payment",
             success_url=f"{request.host_url}success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{request.host_url}cancel",
-            metadata={
-                "user_id": str(user_id),
-                "business": business or ""
-            }
+            cancel_url=f"{request.host_url}cancel"
         )
 
         return jsonify({"url": session.url})
