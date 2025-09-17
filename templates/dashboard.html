@@ -66,7 +66,7 @@
       <div id="transactions-table-container"></div>
     </div>
 
-    <a href="https://neksas-activation.onrender.com/checkout" class="logout">Logout</a>
+    <a href="https://neksas-activation.onrender.com" class="logout">Logout</a>
   </div>
 
   <script type="module">
@@ -131,72 +131,95 @@
     }
 
     async function loadTransactionChart(userId) {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("id, psp_id, amount, created_at")
+    .eq("user_id", userId);
 
-      const chartContainer = document.getElementById("chart-container");
-      const canvas = document.getElementById("pspChart");
+  const chartContainer = document.getElementById("chart-container");
+  const canvas = document.getElementById("pspChart");
 
-      if (error) {
-        chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
-        return;
-      }
+  if (error) {
+    chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
+    return;
+  }
 
-      if (!data || data.length === 0) {
-        chartContainer.innerHTML = "<p class='muted'>Nessuna transazione registrata.</p>";
-        return;
-      }
+  if (!data || data.length === 0) {
+    chartContainer.innerHTML = "<p class='muted'>Nessuna transazione registrata.</p>";
+    return;
+  }
 
-      // Conta le transazioni per PSP
-      const counts = {};
-      for (const row of data) {
-        counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
-      }
+  // Conta le transazioni per PSP
+  const counts = {};
+  const amounts = {};
+  for (const row of data) {
+    counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
+    amounts[row.psp_id] = (amounts[row.psp_id] || 0) + parseFloat(row.amount);
+  }
 
-      // Recupera i nomi dei PSP
-      const labels = [];
-      for (const pspId of Object.keys(counts)) {
-        const { data: psp } = await supabase
-          .from("psp_conditions")
-          .select("psp_name")
-          .eq("id", pspId)
-          .maybeSingle();
-        labels.push(psp?.psp_name || "PSP sconosciuto");
-      }
+  // Recupera i nomi dei PSP
+  const labels = [];
+  const values = [];
+  const valuesAmount = [];
+  for (const pspId of Object.keys(counts)) {
+    const { data: psp } = await supabase
+      .from("psp_conditions")
+      .select("psp_name")
+      .eq("id", pspId)
+      .maybeSingle();
+    labels.push(psp?.psp_name || "PSP sconosciuto");
+    values.push(counts[pspId]);
+    valuesAmount.push(amounts[pspId].toFixed(2));
+  }
 
-      const values = Object.values(counts);
+  // Riepilogo numerico
+  const totalTrans = data.length;
+  const totalAmount = data.reduce((sum, t) => sum + parseFloat(t.amount), 0).toFixed(2);
 
-      chartContainer.innerHTML = "";
-      canvas.style.display = "block";
+  chartContainer.innerHTML = `
+    <p class="muted">Totale transazioni: ${totalTrans} - Totale importo: €${totalAmount}</p>
+  `;
+  canvas.style.display = "block";
 
-      new Chart(canvas, {
-        type: "pie",
-        data: { labels, datasets: [{ label: "Transazioni", data: values, backgroundColor: ["#0077cc", "#00cc88", "#ffaa00", "#cc0044", "#888888"] }] },
-      });
-
-      // Creazione tabella sotto il grafico
-      const tableContainer = document.getElementById("transactions-table-container");
-      let tableHTML = `<table><thead><tr><th>PSP</th><th>Importo (€)</th><th>Data</th><th>Status</th></tr></thead><tbody>`;
-      for (const row of data) {
-        const pspNameRes = await supabase
-          .from("psp_conditions")
-          .select("psp_name")
-          .eq("id", row.psp_id)
-          .maybeSingle();
-        const pspName = pspNameRes.data?.psp_name || "PSP sconosciuto";
-        tableHTML += `<tr>
-          <td>${pspName}</td>
-          <td>${row.amount ?? "-"}</td>
-          <td>${row.created_at ? new Date(row.created_at).toLocaleString("it-IT") : "-"}</td>
-          <td>${row.status ?? "-"}</td>
-        </tr>`;
-      }
-      tableHTML += "</tbody></table>";
-      tableContainer.innerHTML = tableHTML;
+  new Chart(canvas, {
+    type: "pie",
+    data: {
+      labels,
+      datasets: [{
+        label: "Transazioni per PSP",
+        data: values,
+        backgroundColor: ["#0077cc", "#00cc88", "#ffaa00", "#cc0044", "#888888"]
+      }]
     }
+  });
+
+  // Tabella riepilogo per PSP
+  const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.marginTop = "20px";
+  table.style.borderCollapse = "collapse";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th style="border-bottom:1px solid #ccc; padding:6px;">PSP</th>
+        <th style="border-bottom:1px solid #ccc; padding:6px;">Numero transazioni</th>
+        <th style="border-bottom:1px solid #ccc; padding:6px;">Importo totale (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${labels.map((l, i) => `
+        <tr>
+          <td style="padding:6px;">${l}</td>
+          <td style="padding:6px;">${values[i]}</td>
+          <td style="padding:6px;">${valuesAmount[i]}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
+  chartContainer.appendChild(canvas);
+  chartContainer.appendChild(table);
+}
+
 
     loadUser();
   </script>
