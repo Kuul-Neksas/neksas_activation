@@ -7,25 +7,140 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
   <style>
-    body { font-family: 'Poppins', sans-serif; background-color: #f4f7fa; margin: 0; padding: 0; color: #333; }
-    .container { max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; }
-    .hero-top { display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 15px; }
-    .hero-title { font-size: 1.8em; color: #0077cc; font-weight: bold; }
-    .hero-logo { height: 180px; width: auto; }
-    .hero-welcome { font-size: 1.4em; font-weight: bold; margin-bottom: 30px; color: #444; }
-    .section { margin-top: 30px; text-align: left; }
-    .section h2 { font-size: 1.3em; color: #0077cc; margin-bottom: 10px; text-align: center; }
-    .profile-info p, .psp-card p { margin: 6px 0; font-size: 1em; color: #555; }
-    .psp-card { background-color: #eef6ff; border: 1px solid #0077cc; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-    .logout { margin-top: 30px; padding: 12px 24px; background-color: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; display: block; margin-left: auto; margin-right: auto; }
-    .logout:hover { background-color: #cc0000; }
-    .muted { color: #777; font-style: italic; text-align: center; }
-    #pspChart { max-width: 400px; margin: 20px auto; }
-    #error-message { display: none; background-color: #ffe0e0; border: 1px solid #ff4d4d; padding: 10px; border-radius: 5px; font-weight: bold; color: #cc0000; margin-bottom: 20px; text-align: center; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #0077cc; color: white; }
-    td { background-color: #f9f9f9; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .hero-top {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    .hero-title {
+      font-size: 1.8em;
+      color: #0077cc;
+      font-weight: bold;
+    }
+    .hero-logo {
+      height: 180px;
+      width: auto;
+    }
+    .hero-welcome {
+      font-size: 1.4em;
+      font-weight: bold;
+      margin-bottom: 30px;
+      color: #444;
+    }
+    .section {
+      margin-top: 30px;
+      text-align: left;
+    }
+    .section h2 {
+      font-size: 1.3em;
+      color: #0077cc;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .profile-info p,
+    .psp-card p {
+      margin: 6px 0;
+      font-size: 1em;
+      color: #555;
+    }
+    .psp-card {
+      background-color: #eef6ff;
+      border: 1px solid #0077cc;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .logout {
+      margin-top: 30px;
+      padding: 12px 24px;
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1em;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .logout:hover {
+      background-color: #cc0000;
+    }
+    .muted {
+      color: #777;
+      font-style: italic;
+      text-align: center;
+    }
+    #pspChart {
+      max-width: 400px;
+      margin: 20px auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #eef6ff;
+      color: #0077cc;
+    }
+    .expandable {
+      cursor: pointer;
+      color: #0077cc;
+      text-decoration: underline;
+    }
+    .hidden-row {
+      display: none;
+    }
+    button.export-btn {
+      padding: 6px 12px;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button.export-btn:hover {
+      background-color: #005fa3;
+    }
+    #error-message {
+      display: none;
+      background-color: #ffe0e0;
+      border: 1px solid #ff4d4d;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+      color: #cc0000;
+      margin-bottom: 20px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -57,20 +172,23 @@
     </div>
 
     <div class="section">
-      <h2>Transazioni Mensili per PSP</h2>
+      <h2>
+        Transazioni per PSP
+        <button class="export-btn" id="export-btn">Esporta dati</button>
+      </h2>
       <div id="chart-container">
         <p class="muted">Caricamento grafico...</p>
         <canvas id="pspChart" width="400" height="400" style="display:none;"></canvas>
       </div>
-
-      <div id="transactions-table-container"></div>
+      <div id="transactions-table"></div>
     </div>
 
-    <a href="https://neksas-activation.onrender.com" class="logout">Logout</a>
+    <button class="logout" onclick="window.location.href='https://neksas-activation.onrender.com/'">Logout</button>
   </div>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
     const supabase = createClient("{{ supabase_url }}", "{{ supabase_key }}");
     const email = new URLSearchParams(window.location.search).get("email");
 
@@ -84,9 +202,17 @@
       document.getElementById("error-message").style.display = "none";
     }
 
+    function formatCurrency(amount) {
+      return amount.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     async function loadUser() {
       hideError();
-      if (!email) { showError("Email non fornita."); return; }
+
+      if (!email) {
+        showError("Email non fornita.");
+        return;
+      }
 
       const { data: user, error } = await supabase
         .from("users")
@@ -94,17 +220,22 @@
         .eq("email", email)
         .maybeSingle();
 
-      if (error || !user) { showError("Utente non trovato."); return; }
+      if (error || !user) {
+        showError("Utente non trovato.");
+        return;
+      }
 
       document.getElementById("user-email").textContent = user.email;
       document.getElementById("email").textContent = user.email;
       document.getElementById("name").textContent = user.name || "-";
       document.getElementById("surname").textContent = user.surname || "-";
       document.getElementById("business").textContent = user.business_name || "-";
-      document.getElementById("created").textContent = user.created_at ? new Date(user.created_at).toLocaleDateString("it-IT") : "-";
+      document.getElementById("created").textContent = user.created_at
+        ? new Date(user.created_at).toLocaleDateString("it-IT")
+        : "-";
 
-      loadPSPs(user.id);
-      loadTransactionChart(user.id);
+      await loadPSPs(user.id);
+      await loadTransactions(user.id);
     }
 
     async function loadPSPs(userId) {
@@ -115,8 +246,16 @@
 
       const container = document.getElementById("psp-list");
       container.innerHTML = "";
-      if (error) { showError("Errore nel caricamento dei PSP."); return; }
-      if (!data || data.length === 0) { container.innerHTML = "<p class='muted'>Nessun PSP attivato.</p>"; return; }
+
+      if (error) {
+        showError("Errore nel caricamento dei PSP.");
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        container.innerHTML = "<p class='muted'>Nessun PSP attivato.</p>";
+        return;
+      }
 
       for (const entry of data) {
         const card = document.createElement("div");
@@ -130,167 +269,114 @@
       }
     }
 
-    // Funzione helper per formattare numeri
-function formatNumber(value) {
-  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+    async function loadTransactions(userId) {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId);
 
-async function loadTransactionChart(userId) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, psp_id, amount, created_at")
-    .eq("user_id", userId);
+      const chartContainer = document.getElementById("chart-container");
+      const canvas = document.getElementById("pspChart");
+      const tableContainer = document.getElementById("transactions-table");
 
-  const chartContainer = document.getElementById("chart-container");
-  const canvas = document.getElementById("pspChart");
-  canvas.style.display = "block";
+      if (error) {
+        chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
+        return;
+      }
 
-  if (error) {
-    chartContainer.innerHTML = "<p class='muted'>Errore nel caricamento delle transazioni.</p>";
-    return;
-  }
+      if (!data || data.length === 0) {
+        chartContainer.innerHTML = "<p class='muted'>Nessuna transazione registrata.</p>";
+        tableContainer.innerHTML = "";
+        return;
+      }
 
-  if (!data || data.length === 0) {
-    chartContainer.innerHTML = "<p class='muted'>Nessuna transazione registrata.</p>";
-    return;
-  }
+      // Raggruppa per PSP e stato
+      const summary = {};
+      for (const tx of data) {
+        if (!summary[tx.psp_id]) summary[tx.psp_id] = { total: 0, states: {}, transactions: [] };
+        summary[tx.psp_id].total += parseFloat(tx.amount);
+        summary[tx.psp_id].states[tx.status] = summary[tx.psp_id].states[tx.status] || { count: 0, total: 0 };
+        summary[tx.psp_id].states[tx.status].count += 1;
+        summary[tx.psp_id].states[tx.status].total += parseFloat(tx.amount);
+        summary[tx.psp_id].transactions.push(tx);
+      }
 
-  // Conteggio e somma per PSP
-  const counts = {};
-  const amounts = {};
-  for (const row of data) {
-    counts[row.psp_id] = (counts[row.psp_id] || 0) + 1;
-    amounts[row.psp_id] = (amounts[row.psp_id] || 0) + parseFloat(row.amount);
-  }
+      // Recupera nomi PSP
+      const labels = [];
+      const counts = [];
+      for (const pspId of Object.keys(summary)) {
+        const { data: psp } = await supabase
+          .from("psp_conditions")
+          .select("psp_name")
+          .eq("id", pspId)
+          .maybeSingle();
+        const name = psp?.psp_name || "PSP sconosciuto";
+        summary[pspId].name = name;
+        labels.push(name);
+        counts.push(summary[pspId].transactions.length);
+      }
 
-  // Recupero nomi PSP
-  const labels = [];
-  const values = [];
-  const valuesAmount = [];
-  for (const pspId of Object.keys(counts)) {
-    const { data: psp } = await supabase
-      .from("psp_conditions")
-      .select("psp_name")
-      .eq("id", pspId)
-      .maybeSingle();
-    labels.push(psp?.psp_name || "PSP sconosciuto");
-    values.push(counts[pspId]);
-    valuesAmount.push(amounts[pspId]);
-  }
+      // Grafico a torta
+      canvas.style.display = "block";
+      new Chart(canvas, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{
+            label: "Transazioni",
+            data: counts,
+            backgroundColor: ["#0077cc", "#00cc88", "#ffaa00", "#cc0044", "#888888"]
+          }]
+        }
+      });
 
-  // Distruggi eventuale grafico precedente
-  if (window.pspPieChart) window.pspPieChart.destroy();
-
-  // Totale generale
-  const totalTrans = data.length;
-  const totalAmount = data.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  chartContainer.innerHTML = `
-    <p class="muted">Totale transazioni: ${totalTrans} - Totale importo: €${formatNumber(totalAmount)}</p>
-  `;
-  chartContainer.appendChild(canvas);
-
-  // Grafico a torta
-  window.pspPieChart = new Chart(canvas, {
-    type: "pie",
-    data: {
-      labels,
-      datasets: [{
-        label: "Transazioni per PSP",
-        data: values,
-        backgroundColor: ["#0077cc", "#00cc88", "#ffaa00", "#cc0044", "#888888"]
-      }]
-    }
-  });
-
-  // Tabella riepilogo PSP
-  const table = document.createElement("table");
-  table.style.width = "100%";
-  table.style.marginTop = "20px";
-  table.style.borderCollapse = "collapse";
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th style="border-bottom:1px solid #ccc; padding:6px; cursor:pointer;">PSP</th>
-        <th style="border-bottom:1px solid #ccc; padding:6px;">Numero transazioni</th>
-        <th style="border-bottom:1px solid #ccc; padding:6px;">Importo totale (€)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${labels.map((l, i) => `
-        <tr class="psp-row" data-psp="${l}">
-          <td style="padding:6px; color:#0077cc; text-decoration:underline; cursor:pointer;">${l}</td>
-          <td style="padding:6px;">${values[i]}</td>
-          <td style="padding:6px;">${formatNumber(valuesAmount[i])}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  `;
-  chartContainer.appendChild(table);
-
-  // Aggiungi tabella transazioni dettagliate per PSP (nascosta inizialmente)
-  const detailDiv = document.createElement("div");
-  detailDiv.id = "psp-details";
-  detailDiv.style.marginTop = "20px";
-  chartContainer.appendChild(detailDiv);
-
-  // Click sul PSP per mostrare transazioni singole
-  document.querySelectorAll(".psp-row td:first-child").forEach(td => {
-    td.addEventListener("click", async () => {
-      const pspName = td.textContent;
-      const pspId = Object.keys(counts).find(k => labels[Object.keys(counts).indexOf(k)] === pspName);
-
-      const rows = data.filter(t => t.psp_id === pspId);
-      let html = `<h3>Transazioni per ${pspName}</h3>`;
-      html += `<table style="width:100%; border-collapse:collapse;"><thead>
-        <tr>
-          <th style="border-bottom:1px solid #ccc; padding:6px;">ID</th>
-          <th style="border-bottom:1px solid #ccc; padding:6px;">Data</th>
-          <th style="border-bottom:1px solid #ccc; padding:6px;">Importo (€)</th>
-        </tr></thead><tbody>`;
-      rows.forEach(r => {
+      // Tabella riepilogo
+      let html = '<table><thead><tr><th>PSP</th><th>Totale Transazioni</th><th>Importo Totale (€)</th><th>Dettaglio per Stato</th></tr></thead><tbody>';
+      for (const pspId of Object.keys(summary)) {
+        const ps = summary[pspId];
+        let stateDetail = "";
+        for (const st in ps.states) {
+          stateDetail += `${ps.states[st].count} ${st} - € ${formatCurrency(ps.states[st].total)}<br>`;
+        }
         html += `<tr>
-          <td style="padding:6px;">${r.id}</td>
-          <td style="padding:6px;">${new Date(r.created_at).toLocaleString('it-IT')}</td>
-          <td style="padding:6px;">${formatNumber(parseFloat(r.amount))}</td>
+          <td class="expandable" onclick="toggleTransactions('${pspId}')">${ps.name}</td>
+          <td>${ps.transactions.length}</td>
+          <td>€ ${formatCurrency(ps.total)}</td>
+          <td>${stateDetail}</td>
         </tr>`;
-      });
-      html += "</tbody></table>";
-      detailDiv.innerHTML = html;
-      detailDiv.scrollIntoView({ behavior: "smooth" });
-    });
-  });
+        for (const tx of ps.transactions) {
+          html += `<tr class="hidden-row tx-${pspId}"><td colspan="4">ID: ${tx.id} | Data: ${new Date(tx.created_at).toLocaleString("it-IT")} | Stato: ${tx.status} | Importo: € ${formatCurrency(tx.amount)}</td></tr>`;
+        }
+      }
+      html += '</tbody></table>';
+      tableContainer.innerHTML = html;
+    }
 
-  // Pulsante Esporta dati
-  if (!document.getElementById("export-btn")) {
-    const btn = document.createElement("button");
-    btn.id = "export-btn";
-    btn.textContent = "📤 Esporta dati";
-    btn.style.margin = "20px auto";
-    btn.style.display = "block";
-    btn.style.padding = "10px 15px";
-    btn.style.cursor = "pointer";
-    btn.addEventListener("click", () => {
-      // Crea CSV semplice
-      let csv = "PSP,ID Transazione,Data,Importo (€)\n";
-      data.forEach(r => {
-        const pspName = labels[Object.keys(counts).indexOf(r.psp_id)] || "PSP sconosciuto";
-        csv += `${pspName},${r.id},${new Date(r.created_at).toLocaleString('it-IT')},${formatNumber(r.amount)}\n`;
+    window.toggleTransactions = function(pspId) {
+      document.querySelectorAll(`.tx-${pspId}`).forEach(r => {
+        r.style.display = r.style.display === "table-row" ? "none" : "table-row";
       });
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `transazioni_${email}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-    document.querySelector(".container").prepend(btn);
-  }
-}
+    };
 
+    // Esporta dati CSV
+    document.getElementById("export-btn").addEventListener("click", () => {
+      const rows = document.querySelectorAll("#transactions-table table tr");
+      let csv = [];
+      rows.forEach(row => {
+        const cols = Array.from(row.children).map(td => td.innerText.replace(/\n/g,' '));
+        csv.push(cols.join(","));
+      });
+      const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", "transazioni.csv");
+      link.click();
+    });
+
+    // Avvio caricamento
     loadUser();
   </script>
 </body>
 </html>
+
 
