@@ -262,7 +262,6 @@ import os
 
 app = Flask(__name__)
 
-# Creiamo il client Supabase usando le variabili d'environment di Render
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -278,18 +277,21 @@ def create_stripe_session():
     if not user_id or not amount:
         return jsonify({"error": "Parametri mancanti"}), 400
 
-    # Recuperiamo le chiavi Stripe per l'utente dal DB
-    resp = supabase.from("user_psp_conditions").select("api_key_secret").eq("user_id", user_id).eq("circuit_name", "Stripe").maybe_single()
-    if resp.get("error") or not resp.get("data"):
+    # Recupero chiave Stripe per l'utente (versione supabase-py 2.x)
+    resp = supabase.table("user_psp_conditions") \
+        .select("api_key_secret") \
+        .eq("user_id", user_id) \
+        .eq("circuit_name", "Stripe") \
+        .execute()
+
+    if resp.error or not resp.data or len(resp.data) == 0:
         return jsonify({"error": "Chiavi Stripe non trovate per l'utente"}), 400
 
-    stripe_secret = resp["data"]["api_key_secret"]
+    stripe_secret = resp.data[0]["api_key_secret"]
 
-    # Inizializziamo Stripe con la chiave dell'utente
     stripe.api_key = stripe_secret
 
     try:
-        # Stripe richiede importo in centesimi
         amount_cents = int(float(amount) * 100)
 
         session = stripe.checkout.Session.create(
@@ -316,8 +318,6 @@ def create_stripe_session():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(debug=True)
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
