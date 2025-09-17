@@ -203,8 +203,10 @@
     }
 
     function formatCurrency(amount) {
-      return amount.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+      const parts = parseFloat(amount).toFixed(2).split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return parts.join(",");
+   }
 
     async function loadUser() {
       hideError();
