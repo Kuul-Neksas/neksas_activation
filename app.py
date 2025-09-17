@@ -255,34 +255,25 @@ def get_user_psp_keys(user_id, psp_name):
         return record["api_key_public"], record["api_key_secret"]
     return None, None
 
-@app.post("/api/create-stripe-session")
+import stripe
+from flask import request, jsonify
+from supabase import create_client
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@app.route("/create-stripe-session", methods=["POST"])
 def create_stripe_session():
-    data = request.get_json(force=True) or {}
+    data = request.json
     user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"error": "user_id richiesto"}), 400
+    amount = int(float(data.get("amount")) * 100)  # in centesimi
+    description = data.get("description", "")
 
-    public_key, secret_key = get_user_psp_keys(user_id, "stripe")
-    if not secret_key:
-        return jsonify({"error": "Stripe non configurato per questo utente"}), 500
+    # Recupera api_key_secret dall'utente
+    user_psp = supabase.table("user_psp_conditions").select("*").eq("user_id", user_id).eq("circuit_name","Stripe").maybe_single().execute()
+    if not user_psp.data:
+        return jsonify({"error": "Stripe non configurato"}), 400
 
-    stripe.api_key = secret_key
-    amount = data.get("amount")
-    if amount is None:
-        return jsonify({"error": "amount richiesto"}), 400
-
-    try:
-        amount_cents = int(round(float(amount) * 100))
-    except Exception:
-        return jsonify({"error": "amount invalido"}), 400
-
-    base = app.config.get("BASE_URL", request.host_url.rstrip("/"))
-    success_url = f"{base}/payment-return?psp=stripe&session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{base}/payment-cancel?psp=stripe"
-    metadata = {}
-    for k in ("user_id", "psp_id", "tx_id", "description", "business"):
-        if k in data and data[k] is not None:
-            metadata[k] = str(data[k])
+    stripe.api_key = user_psp.data.get("api_key_secret")
 
     try:
         session = stripe.checkout.Session.create(
@@ -290,20 +281,19 @@ def create_stripe_session():
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": f"Neksəs - {metadata.get('business','Pagamento')}"},
-                    "unit_amount": amount_cents,
+                    "product_data": {"name": description or "Pagamento"},
+                    "unit_amount": amount,
                 },
                 "quantity": 1,
             }],
             mode="payment",
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata=metadata
+            success_url=f"{request.host_url}checkout-success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{request.host_url}checkout-cancel",
         )
-        return jsonify({"url": session.url, "id": session.id})
+        return jsonify({"url": session.url})
     except Exception as e:
-        app.logger.exception("Stripe create session failed")
         return jsonify({"error": str(e)}), 500
+
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
