@@ -258,9 +258,14 @@ def get_user_psp_keys(user_id, psp_name):
 from flask import Flask, request, jsonify
 import stripe
 from supabase import create_client
+import os
 
 app = Flask(__name__)
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)  # QUI solo per connetterti al DB Supabase
+
+# Creiamo il client Supabase usando le variabili d'environment di Render
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route("/create-stripe-session", methods=["POST"])
 def create_stripe_session():
@@ -268,37 +273,51 @@ def create_stripe_session():
     user_id = data.get("user_id")
     amount = data.get("amount")
     description = data.get("description")
+    business = data.get("business")
 
-    # 1. Prendere le chiavi Stripe dal DB
-    res = supabase.table("user_psp_conditions").select("api_key_secret, api_key_public").eq("user_id", user_id).eq("circuit_name", "Stripe").maybe_single().execute()
-    stripe_keys = res.data
-    if not stripe_keys:
-        return jsonify({"error": "Chiavi Stripe non trovate"}), 400
+    if not user_id or not amount:
+        return jsonify({"error": "Parametri mancanti"}), 400
 
-    # 2. Impostare la chiave segreta dinamicamente
-    stripe.api_key = stripe_keys["api_key_secret"]
+    # Recuperiamo le chiavi Stripe per l'utente dal DB
+    resp = supabase.from("user_psp_conditions").select("api_key_secret").eq("user_id", user_id).eq("circuit_name", "Stripe").maybe_single()
+    if resp.get("error") or not resp.get("data"):
+        return jsonify({"error": "Chiavi Stripe non trovate per l'utente"}), 400
 
-    # 3. Creare la sessione di pagamento
+    stripe_secret = resp["data"]["api_key_secret"]
+
+    # Inizializziamo Stripe con la chiave dell'utente
+    stripe.api_key = stripe_secret
+
     try:
+        # Stripe richiede importo in centesimi
+        amount_cents = int(float(amount) * 100)
+
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {"name": description},
-                    "unit_amount": int(float(amount) * 100),  # euro -> centesimi
+                    "product_data": {"name": description or "Pagamento Neksəs"},
+                    "unit_amount": amount_cents,
                 },
                 "quantity": 1,
             }],
             mode="payment",
             success_url=f"{request.host_url}success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{request.host_url}cancel"
+            cancel_url=f"{request.host_url}cancel",
+            metadata={
+                "user_id": str(user_id),
+                "business": business or ""
+            }
         )
+
         return jsonify({"url": session.url})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+if __name__ == "__main__":
+    app.run(debug=True)
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
