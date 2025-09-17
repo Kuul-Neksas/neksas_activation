@@ -478,6 +478,58 @@ def simulate_pay():
         desc=desc
     )
 
+from flask import flash
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+@app.post("/send-receipt")
+def send_receipt():
+    email = request.form.get("email")
+    tx_id = request.form.get("tx_id")
+    amount = request.form.get("amount")
+    business = request.form.get("business")
+    desc = request.form.get("desc")
+    psp = request.form.get("psp")
+
+    if not email or not tx_id:
+        return jsonify({"error": "Email o ID transazione mancante"}), 400
+
+    try:
+        # 🔹 prepara contenuto email
+        subject = f"Ricevuta pagamento simulato — {business or 'Transazione'}"
+        body = f"""
+        Ciao,
+
+        il tuo pagamento simulato è stato registrato con successo.
+
+        📌 Dettagli:
+        - Transazione ID: {tx_id}
+        - Importo: {amount} EUR
+        - Azienda: {business or "-"}
+        - Descrizione: {desc or "-"}
+        - PSP: {psp}
+
+        Grazie per aver utilizzato il servizio.
+        """
+
+        # 🔹 prepara messaggio email
+        msg = MIMEMultipart()
+        msg["From"] = "noreply@tuodominio.it"
+        msg["To"] = email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+
+        # 🔹 invio email (qui uso SMTP locale come esempio)
+        with smtplib.SMTP("localhost", 25) as server:
+            server.send_message(msg)
+
+        return jsonify({"success": True, "message": f"Ricevuta inviata a {email}"})
+
+    except Exception as e:
+        app.logger.exception("Errore invio email ricevuta")
+        return jsonify({"error": f"Errore invio email: {str(e)}"}), 500
+
 
 # -----------------------
 # Payment return
