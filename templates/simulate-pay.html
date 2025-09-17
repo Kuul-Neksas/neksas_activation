@@ -36,13 +36,15 @@
         <span class="small">ID transazione: {{ tx_id }}</span>
       </div>
 
-      <!-- Form per invio ricevuta via email -->
-      <form method="post" action="/send-receipt" style="margin-top:20px;">
+      <!-- Form per invio ricevuta via email (simulato) -->
+      <form onsubmit="fakeSendEmail(event)" style="margin-top:20px;">
         <input type="hidden" name="tx_id" value="{{ tx_id }}">
         <label for="email">Email per la ricevuta di pagamento</label>
         <input id="email" name="email" type="email" placeholder="esempio@email.com" required>
         <button type="submit">📧 Invia ricevuta</button>
       </form>
+
+      <p id="email-msg" class="note center" style="margin-top:12px; display:none;"></p>
 
       <div class="note center" style="margin-top:12px;">
         La ricevuta di pagamento non è uno scontrino fiscale.<br>
@@ -111,37 +113,55 @@
   <script>
     (function() {
       const form = document.getElementById('simulate-form');
-      if (!form) return;
+      if (form) {
+        const cardInput = document.getElementById('card');
+        const cvcInput = document.getElementById('cvc');
 
-      const cardInput = document.getElementById('card');
-      const cvcInput = document.getElementById('cvc');
+        cardInput && cardInput.addEventListener('input', (e) => {
+          let v = e.target.value.replace(/\D/g,'').slice(0,19);
+          v = v.match(/.{1,4}/g)?.join(' ') || v;
+          e.target.value = v;
+        });
 
-      cardInput && cardInput.addEventListener('input', (e) => {
-        let v = e.target.value.replace(/\D/g,'').slice(0,19);
-        v = v.match(/.{1,4}/g)?.join(' ') || v;
-        e.target.value = v;
-      });
+        cvcInput && cvcInput.addEventListener('input', (e) => {
+          e.target.value = e.target.value.replace(/\D/g,'').slice(0,4);
+        });
 
-      cvcInput && cvcInput.addEventListener('input', (e) => {
-        e.target.value = e.target.value.replace(/\D/g,'').slice(0,4);
-      });
+        form.addEventListener('submit', function(ev) {
+          const cardholder = document.getElementById('cardholder').value.trim();
+          const card = cardInput.value.replace(/\s+/g,'');
+          const exp_month = document.getElementById('exp_month').value;
+          const exp_year = document.getElementById('exp_year').value;
+          const cvc = cvcInput.value.trim();
 
-      form.addEventListener('submit', function(ev) {
-        const cardholder = document.getElementById('cardholder').value.trim();
-        const card = cardInput.value.replace(/\s+/g,'');
-        const exp_month = document.getElementById('exp_month').value;
-        const exp_year = document.getElementById('exp_year').value;
-        const cvc = cvcInput.value.trim();
-
-        if (!cardholder || card.length < 12 || !exp_month || !exp_year || cvc.length < 3) {
-          ev.preventDefault();
-          alert('Compila tutti i campi della carta correttamente per simulare il pagamento.');
-          return false;
-        }
-
-        return true;
-      });
+          if (!cardholder || card.length < 12 || !exp_month || !exp_year || cvc.length < 3) {
+            ev.preventDefault();
+            alert('Compila tutti i campi della carta correttamente per simulare il pagamento.');
+            return false;
+          }
+          return true;
+        });
+      }
     })();
+
+    // Funzione prototipo per invio email
+    function fakeSendEmail(ev) {
+      ev.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const msg = document.getElementById("email-msg");
+
+      if (!email) {
+        msg.style.display = "block";
+        msg.style.color = "#9b2222";
+        msg.innerText = "❌ Inserisci un indirizzo email valido.";
+        return;
+      }
+
+      msg.style.display = "block";
+      msg.style.color = "#1b7a3a";
+      msg.innerText = "ℹ️ In questo prototipo non vengono inviate email.\nRicevuta simulata per: " + email;
+    }
   </script>
 </body>
 </html>
+
