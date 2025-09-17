@@ -33,17 +33,36 @@
     {% if success %}
       <div class="success center">
         ✅ Pagamento simulato registrato con successo.<br>
-        <a href="/" style="color:#0077cc; text-decoration:underline; display:inline-block; margin-top:8px;">Logout</a>
+        <span class="small">ID transazione: {{ tx_id }}</span>
       </div>
+
+      <!-- Form per invio ricevuta via email -->
+      <form method="post" action="/send-receipt" style="margin-top:20px;">
+        <input type="hidden" name="tx_id" value="{{ tx_id }}">
+        <label for="email">Email per la ricevuta di pagamento</label>
+        <input id="email" name="email" type="email" placeholder="esempio@email.com" required>
+        <button type="submit">📧 Invia ricevuta</button>
+      </form>
+
+      <div class="note center" style="margin-top:12px;">
+        La ricevuta di pagamento non è uno scontrino fiscale.<br>
+        Lo scontrino ufficiale sarà inviato dalla cassa digitale.
+      </div>
+
+      <div class="center" style="margin-top:20px;">
+        <a href="/" style="color:#0077cc; text-decoration:underline;">Torna alla Home</a>
+      </div>
+
     {% elif error %}
       <div class="error">
         ❌ Errore durante la simulazione del pagamento:<br>
         {{ error }}
       </div>
-      <div class="note">Se l'errore è di connessione al DB controlla le impostazioni `DATABASE_URL` su Render / Supabase e i log dell'app.</div>
+      <div class="note">Se l'errore è di connessione al DB controlla le impostazioni `DATABASE_URL` e i log dell'app.</div>
+
     {% else %}
       <form method="post" id="simulate-form" autocomplete="off" novalidate>
-        <!-- campi nascosti (rimangono come prima) -->
+        <!-- campi nascosti -->
         <input type="hidden" name="user_id" value="{{ user_id }}">
         <input type="hidden" name="psp_name" value="{{ psp }}">
         <input type="hidden" name="amount" value="{{ amount }}">
@@ -82,7 +101,7 @@
         <label for="cvc">CVC</label>
         <input id="cvc" name="cvc" type="text" inputmode="numeric" maxlength="4" placeholder="123" required>
 
-        <div class="note">Questi dati sono usati solo per la simulazione lato client e non vengono memorizzati nel database.</div>
+        <div class="note">Questi dati sono usati solo per la simulazione e non vengono memorizzati nel database.</div>
 
         <button type="submit">Conferma Pagamento (Simulato)</button>
       </form>
@@ -90,7 +109,6 @@
   </div>
 
   <script>
-    // Validazione base client-side e minimal formatting
     (function() {
       const form = document.getElementById('simulate-form');
       if (!form) return;
@@ -98,10 +116,8 @@
       const cardInput = document.getElementById('card');
       const cvcInput = document.getElementById('cvc');
 
-      // semplice formatter per la carta
       cardInput && cardInput.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g,'').slice(0,19);
-        // group in 4s
         v = v.match(/.{1,4}/g)?.join(' ') || v;
         e.target.value = v;
       });
@@ -111,7 +127,6 @@
       });
 
       form.addEventListener('submit', function(ev) {
-        // minimal checks
         const cardholder = document.getElementById('cardholder').value.trim();
         const card = cardInput.value.replace(/\s+/g,'');
         const exp_month = document.getElementById('exp_month').value;
@@ -123,15 +138,6 @@
           alert('Compila tutti i campi della carta correttamente per simulare il pagamento.');
           return false;
         }
-
-        // remove sensitive card fields from being included in logs by the browser:
-        // we still POST them to the simulate endpoint (so server may check) BUT server code must NOT store them.
-        // If you prefer to avoid sending them at all to the server, uncomment the next lines to strip them
-        // before submit (but currently server ignores sensitive fields).
-        //
-        // document.getElementById('card').value = '****';
-        // document.getElementById('cvc').value = '***';
-        // document.getElementById('cardholder').value = cardholder; // keep name if needed
 
         return true;
       });
