@@ -278,18 +278,16 @@ def create_stripe_session():
         return jsonify({"error": "Parametri mancanti"}), 400
 
     # Recupera le chiavi Stripe dal DB
-       res = (
-          supabase.from_("user_psp")
-          .select("api_key_secret")
-          .eq("user_id", user_id)
-          .eq("circuit_name", "stripe")
-          .maybe_single()
-        )
+    res = supabase.from_("user_psp") \
+        .select("api_key_secret") \
+        .eq("user_id", user_id) \
+        .eq("circuit_name", "stripe") \
+        .execute()
 
-    if res.get("error") or not res.get("data"):
+    if res.error or not res.data or len(res.data) == 0:
         return jsonify({"error": "Chiave Stripe non trovata"}), 400
 
-    stripe_secret_key = res["data"]["api_key_secret"]
+    stripe_secret_key = res.data[0]["api_key_secret"]
     stripe.api_key = stripe_secret_key
 
     try:
@@ -311,6 +309,7 @@ def create_stripe_session():
         return jsonify({"url": session.url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.post("/api/create-paypal-order")
