@@ -278,11 +278,13 @@ def create_stripe_session():
         return jsonify({"error": "Parametri mancanti"}), 400
 
     # Recupera le chiavi Stripe dal DB
-    res = supabase.from("user_psp")\
-        .select("api_key_secret")\
-        .eq("user_id", user_id)\
-        .eq("circuit_name", "stripe")\
-        .maybe_single()
+       res = (
+          supabase.from_("user_psp")
+          .select("api_key_secret")
+          .eq("user_id", user_id)
+          .eq("circuit_name", "stripe")
+          .maybe_single()
+        )
 
     if res.get("error") or not res.get("data"):
         return jsonify({"error": "Chiave Stripe non trovata"}), 400
