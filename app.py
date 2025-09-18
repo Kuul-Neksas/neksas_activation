@@ -270,44 +270,41 @@ def get_user_psp_keys(user_id, psp_name):
 def create_stripe_session():
     data = request.json
     user_id = data.get("user_id")
-    amount = data.get("amount")
-    description = data.get("description")
-    business = data.get("business")
-
-    if not user_id or not amount:
-        return jsonify({"error": "user_id e amount sono obbligatori"}), 400
+    amount = data.get("amount")  # in euro
+    description = data.get("description", "Pagamento con Stripe")
 
     try:
-        # Recupera la chiave segreta Stripe dal DB per l'utente
-        resp = supabase.from_("user_psp_conditions") \
+        # Recupera la chiave segreta di Stripe dal DB Supabase
+        resp = supabase.table("user_psp_conditions") \
             .select("api_key_secret") \
             .eq("user_id", user_id) \
             .eq("circuit_name", "Stripe") \
             .maybe_single()
 
-        if not resp or not resp.get("data") or not resp["data"].get("api_key_secret"):
-            return jsonify({"error": "Chiave Stripe non trovata per l'utente"}), 400
+        if not resp or not resp.data:
+            return jsonify({"error": "Chiavi Stripe non trovate per questo utente"}), 400
 
-        stripe_secret = resp["data"]["api_key_secret"]
+        stripe_secret = resp.data.get("api_key_secret")
+        if not stripe_secret:
+            return jsonify({"error": "Chiave segreta Stripe mancante"}), 400
+
+        # Inizializza Stripe con la chiave del merchant
         stripe.api_key = stripe_secret
 
-        # Crea sessione Stripe Checkout
+        # Crea la sessione di pagamento
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
-            mode="payment",
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product_data": {
-                        "name": description or "Pagamento Neksəs",
-                        "metadata": {"business": business or "-"}
-                    },
-                    "unit_amount": int(float(amount) * 100),  # in centesimi
+                    "product_data": {"name": description},
+                    "unit_amount": int(float(amount) * 100),  # importo in centesimi
                 },
-                "quantity": 1
+                "quantity": 1,
             }],
-            success_url=f"{request.host_url}success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{request.host_url}cancel"
+            mode="payment",
+            success_url="https://neksas-activation.onrender.com/success",
+            cancel_url="https://neksas-activation.onrender.com/cancel",
         )
 
         return jsonify({"url": session.url})
