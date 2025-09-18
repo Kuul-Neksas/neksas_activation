@@ -278,11 +278,13 @@ def create_stripe_session():
         return jsonify({"error": "Parametri mancanti"}), 400
 
     # Recupera le chiavi Stripe dal DB filtrando per user_id e psp_name
-    res = supabase.from_("user_psp") 
-        .select("api_key_secret") 
-        .eq("user_id", user_id) 
-        .eq("psp_name", "stripe") 
+    res = (
+        supabase.from_("user_psp")
+        .select("api_key_secret")
+        .eq("user_id", user_id)
+        .eq("psp_name", "stripe")
         .execute()
+    )
 
     if res.error or not res.data or len(res.data) == 0:
         return jsonify({"error": "Chiave Stripe non trovata"}), 400
@@ -291,6 +293,7 @@ def create_stripe_session():
     stripe.api_key = stripe_secret_key
 
     try:
+        # Crea la sessione Stripe
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="payment",
@@ -298,7 +301,7 @@ def create_stripe_session():
                 "price_data": {
                     "currency": "eur",
                     "product_data": {"name": description},
-                    "unit_amount": int(float(amount) * 100),
+                    "unit_amount": int(float(amount) * 100),  # euro → centesimi
                 },
                 "quantity": 1,
             }],
