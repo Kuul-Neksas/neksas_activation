@@ -277,11 +277,11 @@ def create_stripe_session():
     if not all([amount, description, user_id]):
         return jsonify({"error": "Parametri mancanti"}), 400
 
-    # Recupera le chiavi Stripe dal DB
+    # Recupera le chiavi Stripe dal DB filtrando per user_id e psp_name
     res = supabase.from_("user_psp") \
         .select("api_key_secret") \
         .eq("user_id", user_id) \
-        .eq("circuit_name", "stripe") \
+        .eq("psp_name", "stripe") \
         .execute()
 
     if res.error or not res.data or len(res.data) == 0:
@@ -291,7 +291,6 @@ def create_stripe_session():
     stripe.api_key = stripe_secret_key
 
     try:
-        # Crea la sessione Stripe
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="payment",
@@ -299,7 +298,7 @@ def create_stripe_session():
                 "price_data": {
                     "currency": "eur",
                     "product_data": {"name": description},
-                    "unit_amount": int(float(amount) * 100),  # euro → centesimi
+                    "unit_amount": int(float(amount) * 100),
                 },
                 "quantity": 1,
             }],
@@ -309,8 +308,6 @@ def create_stripe_session():
         return jsonify({"url": session.url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
 
 @app.post("/api/create-paypal-order")
 def create_paypal_order():
